@@ -1,0 +1,13 @@
+.env
+.auth_secret
+auth_users.json
+agent.db
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+venv/
+env/
+dist/
+build/
+*.log

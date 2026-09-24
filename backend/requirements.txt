@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+psycopg[binary]
+pytest
+httpx
+openai
+python-dotenv
+pdfplumber
