@@ -63,3 +63,54 @@ yarn-error.log*
 backend/auth_users.json
 backend/.auth_secret
 *.bak
+
+cat > .gitignore << 'EOF'
+# Environments (rahasia, jangan di-commit)
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+
+# Node / Frontend
+node_modules/
+dist-ssr/
+*.local
+
+# IDE dan OS
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# Log
+logs/
+*.log
+npm-debug.log*
+
+# Database lokal
+*.sqlite
+*.sqlite3
+*.db
+
+# Data login lokal
+backend/auth_users.json
+backend/.auth_secret
+
+# Cadangan
+*.bak
+
+# Dokumen internal (buka komentar kalau PDF-nya data asli)
+# backend/data/*.pdf
+EOF
