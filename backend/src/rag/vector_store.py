@@ -1,64 +1,39 @@
-from collections import Counter
 import math
-import re
-
-
-TOKEN_PATTERN = re.compile(r"[a-zA-Z0-9_]+")
-
+from .embeddings import Embeddings
 
 class VectorStore:
-    """Small in-memory lexical store for local RAG without model downloads."""
+    """In-memory vector store using OpenAI embeddings and cosine similarity."""
 
     def __init__(self):
         self.documents = []
-        self.document_frequencies = Counter()
-        self.document_count = 0
+        self.embedder = Embeddings()
 
     def add_documents(self, documents):
         self.documents = []
-        self.document_frequencies = Counter()
-
         for index, document in enumerate(documents):
-            tokens = self._tokenize(document.get("content", ""))
-            token_counts = Counter(tokens)
-            stored_document = {
+            content = document.get("content", "")
+            embedding = self.embedder.embed_text(content)
+            self.documents.append({
                 **document,
                 "id": index,
-                "_tokens": token_counts,
-                "_token_set": set(token_counts)
-            }
-            self.documents.append(stored_document)
-            self.document_frequencies.update(stored_document["_token_set"])
-
-        self.document_count = len(self.documents)
+                "embedding": embedding
+            })
 
     def similarity_search(self, query: str, top_k: int = 5):
-        query_tokens = self._tokenize(query)
-        if not query_tokens or not self.documents:
+        query_embedding = self.embedder.embed_text(query)
+        if not query_embedding or not self.documents:
             return []
 
-        query_counts = Counter(query_tokens)
         results = []
-        query_text = " ".join(query_tokens)
-
         for document in self.documents:
-            score = 0.0
-            document_tokens = document["_tokens"]
-            document_token_set = document["_token_set"]
+            doc_embedding = document.get("embedding", [])
+            if not doc_embedding:
+                continue
 
-            for token, query_count in query_counts.items():
-                if token not in document_tokens:
-                    continue
-                idf = math.log((self.document_count + 1) / (self.document_frequencies[token] + 1)) + 1
-                score += (1 + math.log(document_tokens[token])) * idf * query_count
-
-            overlap = len(set(query_tokens) & document_token_set)
-            score += overlap / max(len(set(query_tokens)), 1)
-
-            if query_text and query_text in " ".join(document["_token_set"]):
-                score += 1.5
-
-            if score > 0:
+            score = self._cosine_similarity(query_embedding, doc_embedding)
+            
+            # Threshold: Hanya terima dokumen dengan kemiripan di atas 0.35
+            if score > 0.35:
                 results.append({
                     "content": document["content"],
                     "metadata": document.get("metadata", {}),
@@ -66,7 +41,12 @@ class VectorStore:
                 })
 
         return sorted(results, key=lambda item: item["score"], reverse=True)[:top_k]
-
+        
     @staticmethod
-    def _tokenize(text: str):
-        return [token.lower() for token in TOKEN_PATTERN.findall(text)]
+    def _cosine_similarity(v1, v2):
+        dot_product = sum(a * b for a, b in zip(v1, v2))
+        norm_a = math.sqrt(sum(a * a for a in v1))
+        norm_b = math.sqrt(sum(b * b for b in v2))
+        if norm_a == 0 or norm_b == 0:
+            return 0.0
+        return dot_product / (norm_a * norm_b)

@@ -71,15 +71,27 @@ flowchart LR
 
 Backend mengambil `employee_id` dari token sesi, bukan dari input frontend. Karyawan hanya bisa mengakses data miliknya sendiri lewat jalur database.
 
+## Cara Kerja (Penjelasan untuk Pemula)
+
+Bayangkan KORE AI sebagai asisten virtual atau teman kerja yang bisa kamu ajak ngobrol. Berikut adalah alur kerjanya dari awal sampai akhir:
+
+1. **Karyawan Login**: Kamu masuk ke aplikasi menggunakan ID karyawan dan password. Sistem otomatis mengingat siapa kamu.
+2. **Kirim Pertanyaan**: Kamu mengetik pertanyaan di chat, misalnya: _"Berapa sisa cuti saya?"_ atau _"Apa saja syarat absen sakit?"_
+3. **Otak AI Memilih Jalur (Router)**: Saat menerima pertanyaanmu, AI akan menebak maksud dari pertanyaan tersebut dan menentukan "Dari mana saya harus mencari jawaban ini?". AI punya 3 pilihan jalur keahlian:
+   - **Jalur Database**: Jika kamu bertanya tentang **data pribadimu** (seperti sisa cuti, riwayat lembur, daftar tiket IT), AI akan membongkar sistem database (seperti Excel raksasa) dan menarik data pribadimu secara akurat.
+   - **Jalur Dokumen**: Jika kamu bertanya tentang **aturan atau kebijakan perusahaan** (seperti syarat cuti, cara klaim biaya), AI akan membaca buku panduan/dokumen PDF perusahaan, merangkumnya, dan menjawab sesuai isi dokumen.
+   - **Jalur Obrolan Biasa**: Jika kamu hanya menyapa _"Halo, selamat pagi"_ atau curhat, AI akan membalas dengan santai layaknya rekan kerja pada umumnya.
+4. **Memberikan Jawaban**: Setelah menemukan informasi dari jalur yang tepat, AI merangkai jawabannya menggunakan bahasa Indonesia yang mudah dimengerti lalu menampilkannya di layar chat.
+
 ## Tech Stack
 
 | Layer | Teknologi |
 | --- | --- |
 | Frontend | React, Vite, CSS |
-| Backend | Python, FastAPI |
-| Database | PostgreSQL (`psycopg`) |
-| RAG | PDF loader, chunking, lexical vector store |
-| LLM | Klien kompatibel OpenAI (Groq atau OpenAI, opsional) |
+| Backend | FastAPI, Python |
+| Database | PostgreSQL via `psycopg` |
+| RAG | PDF loader + In-memory vector store (OpenAI Embeddings) |
+| LLM | OpenAI (gpt-4o-mini & text-embedding-3-small), Groq opsional |
 | Auth | Autentikasi lokal, PBKDF2, token bertanda tangan |
 | Infrastruktur | Docker, Docker Compose |
 
@@ -258,7 +270,6 @@ npm run build
 - [ ] Konfigurasi deployment yang lengkap
 - [ ] Observability dan audit log
 - [ ] Cakupan test yang lebih luas
-- [ ] RAG dengan embeddings atau reranker
 - [ ] User store untuk production
 - [ ] Login OAuth (Google dan GitHub)
 

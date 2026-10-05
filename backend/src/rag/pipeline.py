@@ -42,22 +42,45 @@ class RAGPipeline:
 
         if not ranked_documents:
             return {
-                "reply": (
-                    "Saya belum menemukan jawaban yang relevan di knowledge base. "
-                    "Pastikan PDF sudah ada di folder backend/data dan pertanyaannya memakai istilah yang ada di dokumen."
-                ),
-                "source": "Knowledge base tidak menemukan konteks"
+                "reply": "Maaf, saya tidak menemukan informasi yang relevan di dalam dokumen.",
+                "source": "Tidak ada dokumen yang relevan"
             }
 
         top_documents = ranked_documents[:3]
         snippets = [self._format_snippet(document) for document in top_documents]
         source = self._format_sources(top_documents)
+        
+        # Tambahkan skor kemiripan agar bisa dilihat langsung di UI
+        top_scores = [str(doc.get("score", 0)) for doc in top_documents]
+        score_info = f" (Skor Kemiripan: {', '.join(top_scores)})"
+        source += score_info
+        
+        context = "\n\n".join(snippets)
+        
+        # Use OpenAI LLM to generate conversational answer
+        try:
+            from openai import OpenAI
+            client = OpenAI()
+            prompt = f"Gunakan informasi berikut untuk menjawab pertanyaan pengguna.\n\nKonteks:\n{context}\n\nPertanyaan: {query}\n\nJawablah dengan sopan dan gunakan bahasa Indonesia yang baik."
+            
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "Anda adalah asisten AI yang membantu menjawab pertanyaan berdasarkan dokumen kebijakan/informasi perusahaan. Jawab hanya berdasarkan konteks yang diberikan."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3
+            )
+            llm_reply = response.choices[0].message.content
+        except Exception as e:
+            print(f"Error calling LLM: {e}")
+            llm_reply = (
+                "Berdasarkan dokumen knowledge base, konteks paling relevan yang saya temukan:\n\n"
+                + context
+            )
 
         return {
-            "reply": (
-                "Berdasarkan dokumen knowledge base, konteks paling relevan yang saya temukan:\n\n"
-                + "\n\n".join(snippets)
-            ),
+            "reply": llm_reply,
             "source": source
         }
 
