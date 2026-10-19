@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { marked } from 'marked'
 import { API_BASE_URL, fetchAuthSession, loginEmployee, registerEmployee, sendMessage } from './backendClient'
 import './App.css'
+
+marked.setOptions({
+  gfm: true,
+  breaks: true
+})
 
 // FIX: Quick prompts diganti dengan contoh yang relevan untuk aplikasi HR,
 // bukan prompt untuk developer tools (Kubernetes, Go, CI/CD).
@@ -1206,10 +1212,13 @@ function Message({ message, chatId, index, onCopy, onRegenerate, onToggleLike, o
         )}
 
         <div className="assistant-card">
-          <p>
-            {shownContent}
-            {isStillStreaming && <span className="stream-cursor" aria-hidden="true" />}
-          </p>
+          <div
+            className="markdown-content"
+            dangerouslySetInnerHTML={{
+              __html: marked.parse(shownContent || '')
+            }}
+          />
+          {isStillStreaming && <span className="stream-cursor" aria-hidden="true" />}
           {sources.length > 0 && !isStillStreaming && (
             <div className="source-row">
               <span>Sumber:</span>

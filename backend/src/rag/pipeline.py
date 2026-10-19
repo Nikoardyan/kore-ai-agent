@@ -102,10 +102,12 @@ class RAGPipeline:
         if llm_client is not None:
             try:
                 prompt = (
-                    "Gunakan informasi berikut untuk menjawab pertanyaan pengguna.\n\n"
-                    f"Konteks:\n{context}\n\n"
-                    f"Pertanyaan: {query}\n\n"
-                    "Jawablah dengan sopan dan gunakan bahasa Indonesia yang baik."
+                    f"Konteks Dokumen:\n{context}\n\n"
+                    f"Pertanyaan Pengguna: {query}\n\n"
+                    "Panduan penyusunan jawaban:\n"
+                    "1. Gunakan format Markdown yang rapi, elegan, dan mudah dibaca (heading ###, bullet points, penekanan bold).\n"
+                    "2. Jika menyajikan perbandingan atau daftar aturan, gunakan tabel atau poin-poin yang terstruktur.\n"
+                    "3. Jawab langsung ke inti informasi secara ringkas dan profesional tanpa pengulangan berlebih."
                 )
                 response = llm_client.chat.completions.create(
                     model=llm_model,
@@ -113,15 +115,15 @@ class RAGPipeline:
                         {
                             "role": "system",
                             "content": (
-                                "Anda adalah asisten AI yang membantu menjawab pertanyaan "
-                                "berdasarkan dokumen kebijakan/informasi perusahaan. "
-                                "Jawab hanya berdasarkan konteks yang diberikan."
+                                "Anda adalah KORE AI, asisten internal perusahaan. "
+                                "Tugas Anda menjawab pertanyaan pengguna secara akurat, terstruktur, dan rapi hanya berdasarkan konteks dokumen. "
+                                "Gunakan bahasa Indonesia yang profesional, ramah, dan tata letak teks yang nyaman dibaca."
                             ),
                         },
                         {"role": "user", "content": prompt},
                     ],
                     temperature=0.3,
-                    max_completion_tokens=600,
+                    max_completion_tokens=700,
                 )
                 llm_reply = response.choices[0].message.content
             except Exception:
