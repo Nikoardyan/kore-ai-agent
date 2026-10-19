@@ -63,8 +63,9 @@ logger = logging.getLogger("kore.api")
 DB_SOURCE = "SQLite" if os.getenv("DATABASE_URL", "").startswith("sqlite") else "PostgreSQL"
 CHAT_SOURCE = "Conversation"
 BACKEND_DIR = Path(__file__).resolve().parent
-AUTH_USERS_FILE = BACKEND_DIR / "auth_users.json"
-AUTH_SECRET_FILE = BACKEND_DIR / ".auth_secret"
+_IS_VERCEL = bool(os.getenv("VERCEL"))
+AUTH_USERS_FILE = (Path("/tmp") / "auth_users.json") if _IS_VERCEL else (BACKEND_DIR / "auth_users.json")
+AUTH_SECRET_FILE = (Path("/tmp") / ".auth_secret") if _IS_VERCEL else (BACKEND_DIR / ".auth_secret")
 AUTH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7
 PASSWORD_HASH_ITERATIONS = 210_000
 
@@ -184,6 +185,14 @@ def _employee_key(employee_id: str) -> str:
 
 
 def _load_auth_users() -> dict:
+    if _IS_VERCEL and not AUTH_USERS_FILE.exists():
+        initial_file = BACKEND_DIR / "auth_users.json"
+        if initial_file.exists():
+            try:
+                import shutil
+                shutil.copy(initial_file, AUTH_USERS_FILE)
+            except Exception:
+                pass
     if not AUTH_USERS_FILE.exists():
         return {}
     try:
