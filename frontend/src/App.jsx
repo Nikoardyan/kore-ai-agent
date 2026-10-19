@@ -254,6 +254,7 @@ function App() {
   const [activeChatId, setActiveChatId] = useState(savedState?.activeChatId || 1)
   const [isToolPanelOpen, setIsToolPanelOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(savedState?.collapsed || false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [mode, setMode] = useState(savedState?.mode || 'autonomous')
   const [isModeOpen, setIsModeOpen] = useState(false)
@@ -561,6 +562,7 @@ function App() {
     setActiveChatId(newId)
     setInput('')
     setIsToolPanelOpen(false)
+    setMobileMenuOpen(false)
   }
 
   const handleHistoryClick = (chatId) => {
@@ -568,6 +570,7 @@ function App() {
     setActiveChatId(chatId)
     setInput('')
     setIsToolPanelOpen(false)
+    setMobileMenuOpen(false)
   }
 
   const handleToolPrompt = (prompt) => {
@@ -716,7 +719,14 @@ function App() {
 
   return (
     <div className="agent-shell">
-      <aside className={`agent-sidebar${collapsed ? ' collapsed' : ''}`} aria-label="Navigasi KORE AI">
+      {mobileMenuOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      <aside className={`agent-sidebar${collapsed ? ' collapsed' : ''}${mobileMenuOpen ? ' mobile-open' : ''}`} aria-label="Navigasi KORE AI">
         <div className="sidebar-brand">
           {createLogoMark()}
           <div className="brand-copy">
@@ -843,6 +853,14 @@ function App() {
       <main className="agent-main">
         <header className="agent-topbar">
           <div className="topbar-title">
+            <button
+              type="button"
+              className="mobile-sidebar-toggle"
+              aria-label="Buka menu navigasi"
+              onClick={() => setMobileMenuOpen(prev => !prev)}
+            >
+              ☰
+            </button>
             <h2>{activeChat?.title || 'Percakapan Baru'}</h2>
             <span className="engine-badge">
               <i /> KORE Reasoning Engine 4.0
