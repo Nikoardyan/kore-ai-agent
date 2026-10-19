@@ -20,12 +20,12 @@ class Embeddings:
         from src.config import settings
         from openai import OpenAI
 
-        api_key = settings.get_llm_api_key()
+        self.api_key = settings.get_llm_api_key()
         base_url = os.getenv("LLM_BASE_URL") or None
-        if not base_url and api_key and api_key.startswith("gsk_"):
+        if not base_url and self.api_key and self.api_key.startswith("gsk_"):
             base_url = "https://api.groq.com/openai/v1"
 
-        self.client = OpenAI(api_key=api_key or "dummy", base_url=base_url)
+        self.client = OpenAI(api_key=self.api_key or "dummy", base_url=base_url)
 
     def embed_text(self, text: str):
         if not text.strip() or (self.api_key and self.api_key.startswith("gsk_")):

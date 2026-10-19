@@ -228,10 +228,39 @@ def _get_auth_secret() -> bytes:
     if env_secret:
         return env_secret.encode("utf-8")
     if AUTH_SECRET_FILE.exists():
-        return AUTH_SECRET_FILE.read_bytes()
-    secret = secrets.token_urlsafe(48).encode("utf-8")
-    AUTH_SECRET_FILE.write_bytes(secret)
-    return secret
+        try:
+            return AUTH_SECRET_FILE.read_bytes()
+        except Exception:
+            pass
+    # Secret fallback yang konsisten antar instance serverless
+    return b"kore-ai-default-auth-token-secret-key-2026"
+
+
+def _get_user_from_token(token: str) -> dict:
+    try:
+        payload_part, signature_part = token.split(".", 1)
+        expected = hmac.new(_get_auth_secret(), payload_part.encode("utf-8"), hashlib.sha256).digest()
+        padded_signature = signature_part + "=" * (-len(signature_part) % 4)
+        signature = base64.urlsafe_b64decode(padded_signature.encode("utf-8"))
+        if not hmac.compare_digest(signature, expected):
+            raise ValueError("bad signature")
+        payload = _decode_b64url_json(payload_part)
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail="Session token tidak valid.") from exc
+
+    if int(payload.get("exp", 0)) < int(time.time()):
+        raise HTTPException(status_code=401, detail="Session token sudah kedaluwarsa.")
+
+    user = _load_auth_users().get(_employee_key(payload.get("sub", "")))
+    if not user:
+        # Di serverless, jika user register di instance lain, token yang sudah terverifikasi
+        # tanda tangannya tetap valid dan user dikonstruksi dari payload
+        user = {
+            "employee_id": payload.get("sub", "employee"),
+            "display_name": payload.get("sub", "Employee"),
+            "role": payload.get("role", "employee"),
+        }
+    return user
 
 
 def _hash_password(password: str, salt_b64: str | None = None):
@@ -293,25 +322,6 @@ def _read_bearer_token(authorization: str | None) -> str:
     return authorization.split(" ", 1)[1].strip()
 
 
-def _get_user_from_token(token: str) -> dict:
-    try:
-        payload_part, signature_part = token.split(".", 1)
-        expected = hmac.new(_get_auth_secret(), payload_part.encode("utf-8"), hashlib.sha256).digest()
-        padded_signature = signature_part + "=" * (-len(signature_part) % 4)
-        signature = base64.urlsafe_b64decode(padded_signature.encode("utf-8"))
-        if not hmac.compare_digest(signature, expected):
-            raise ValueError("bad signature")
-        payload = _decode_b64url_json(payload_part)
-    except Exception as exc:
-        raise HTTPException(status_code=401, detail="Session token tidak valid.") from exc
-
-    if int(payload.get("exp", 0)) < int(time.time()):
-        raise HTTPException(status_code=401, detail="Session token sudah kedaluwarsa.")
-
-    user = _load_auth_users().get(_employee_key(payload.get("sub", "")))
-    if not user:
-        raise HTTPException(status_code=401, detail="Akun tidak ditemukan.")
-    return user
 
 
 def _auth_response(user: dict) -> AuthResponse:
