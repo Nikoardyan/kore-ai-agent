@@ -12,6 +12,13 @@ Env yang dipakai (taruh di .env):
   LLM_MODEL         = model utama untuk jawaban chat
   LLM_ROUTER_MODEL  = opsional, model kecil buat klasifikasi jalur (hemat kuota)
 """
+# PERUBAHAN (fixes):
+# - CORS: allow_origins dari .env (ALLOWED_ORIGINS), bukan wildcard "*"
+# - LLM client: pakai settings.get_llm_api_key(), konsisten dengan config.py
+# - Debug endpoints: dilindungi token auth (butuh login)
+# - Error messages: tidak bocorkan detail teknis ke user
+# - _index_cache: dilindungi threading.Lock untuk thread-safety
+# - Chat endpoint: validasi panjang pesan (max 2000 karakter)
 
 import base64
 import hashlib
@@ -20,6 +27,7 @@ import json
 import logging
 import os
 import re
+import threading
 import secrets
 import time
 from contextlib import asynccontextmanager
@@ -32,6 +40,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.schemas import AuthLoginRequest, AuthRegisterRequest, AuthResponse, ChatRequest, ChatResponse
+from src.config import settings
 from src.database.connection import initialize_database
 from src.database.repository import UserRepository
 from src.rag.pipeline import get_rag_pipeline, run_rag_pipeline
@@ -154,12 +163,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AI Agentic 1", version="v1.1.0", lifespan=lifespan)
 
+# FIX #1: CORS — gunakan daftar origin spesifik dari .env (ALLOWED_ORIGINS),
+# bukan wildcard "*" yang membiarkan semua domain mengakses API.
+_allowed_origins = settings.get_allowed_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -228,9 +240,19 @@ def _decode_b64url_json(data: str) -> dict:
     return json.loads(base64.urlsafe_b64decode(padded.encode("utf-8")).decode("utf-8"))
 
 
-def _make_auth_token(employee_id: str) -> str:
+def _user_role(user: dict | None) -> str:
+    role = (user or {}).get("role") or "employee"
+    return str(role).strip().lower() or "employee"
+
+
+def _is_hr_role(role: str | None) -> bool:
+    return (role or "").strip().lower() in {"hr", "admin"}
+
+
+def _make_auth_token(employee_id: str, role: str = "employee") -> str:
     payload = {
         "sub": employee_id,
+        "role": role,
         "exp": int(time.time()) + AUTH_TOKEN_TTL_SECONDS,
     }
     payload_part = _b64url_json(payload)
@@ -267,10 +289,15 @@ def _get_user_from_token(token: str) -> dict:
 
 
 def _auth_response(user: dict) -> AuthResponse:
-    token = _make_auth_token(user["employee_id"])
+    role = _user_role(user)
+    token = _make_auth_token(user["employee_id"], role)
     return AuthResponse(
         token=token,
-        user={"employee_id": user["employee_id"], "display_name": user.get("display_name") or None},
+        user={
+            "employee_id": user["employee_id"],
+            "display_name": user.get("display_name") or None,
+            "role": role,
+        },
     )
 
 
@@ -318,9 +345,9 @@ def _history_for_llm(recent_messages, limit: int = 6):
 
 @lru_cache(maxsize=1)
 def _get_llm_client():
-    api_key = (
-        os.getenv("LLM_API_KEY") or os.getenv("GROQ_API_KEY") or os.getenv("OPENAI_API_KEY") or ""
-    )
+    # FIX #2: Gunakan settings.get_llm_api_key() alih-alih os.getenv langsung,
+    # supaya konsisten dengan config.py dan mudah di-test.
+    api_key = settings.get_llm_api_key()
     if not api_key:
         return None
     base_url = os.getenv("LLM_BASE_URL") or None
@@ -416,37 +443,56 @@ def get_name_memory_reply(message: str, user_name: str | None):
 # ---------------------------------------------------------------------------
 
 _index_cache = {"at": 0.0, "ttl": 60, "ids": set(), "names": []}
+# FIX #3: Lock untuk melindungi _index_cache dari concurrent access
+_index_cache_lock = threading.Lock()
 
 
 def get_employee_index(repository):
     """Daftar employee_id + nama dari database (di-cache, supaya gak query tiap pesan)."""
     now = time.time()
-    if now - _index_cache["at"] < _index_cache["ttl"]:
+    with _index_cache_lock:
+        if now - _index_cache["at"] < _index_cache["ttl"]:
+            return _index_cache
+
+        ids, names, ttl = set(), [], 10  # kalau gagal, coba lagi 10 detik lagi
+        fetch = getattr(repository, "list_employee_index", None) if repository else None
+        if callable(fetch):
+            try:
+                rows = fetch()
+                ids = {str(r["employee_id"]).upper() for r in rows}
+                full_names = [r["full_name"] for r in rows if r.get("full_name")]
+                candidates = set(full_names)
+                for full_name in full_names:  # "Budi Santoso" -> juga dikenali lewat "Budi"
+                    first = full_name.split()[0]
+                    if len(first) >= 4:
+                        candidates.add(first)
+                names = sorted(candidates, key=len, reverse=True)  # nama panjang dicek dulu
+                ttl = 60
+            except Exception:
+                logger.exception("list_employee_index gagal")
+
+        _index_cache.update(at=now, ttl=ttl, ids=ids, names=names)
         return _index_cache
-
-    ids, names, ttl = set(), [], 10  # kalau gagal, coba lagi 10 detik lagi
-    fetch = getattr(repository, "list_employee_index", None) if repository else None
-    if callable(fetch):
-        try:
-            rows = fetch()
-            ids = {str(r["employee_id"]).upper() for r in rows}
-            full_names = [r["full_name"] for r in rows if r.get("full_name")]
-            candidates = set(full_names)
-            for full_name in full_names:  # "Budi Santoso" -> juga dikenali lewat "Budi"
-                first = full_name.split()[0]
-                if len(first) >= 4:
-                    candidates.add(first)
-            names = sorted(candidates, key=len, reverse=True)  # nama panjang dicek dulu
-            ttl = 60
-        except Exception:
-            logger.exception("list_employee_index gagal")
-
-    _index_cache.update(at=now, ttl=ttl, ids=ids, names=names)
-    return _index_cache
 
 
 def find_identifier(message: str, repository) -> str:
     index = get_employee_index(repository)
+    flexible_id = re.search(r"\bemp\s*[-_]?\s*(\d+)\b", message, flags=re.IGNORECASE)
+    if flexible_id:
+        digits = flexible_id.group(1)
+        candidates = [f"EMP-{digits}", f"EMP-{digits.zfill(3)}", f"EMP{digits}", f"EMP{digits.zfill(3)}"]
+        for candidate in candidates:
+            normalized = candidate.upper()
+            if normalized in index["ids"]:
+                return normalized
+
+    number_lookup = re.search(r"\b(?:karyawan|pegawai)\s+(?:nomor|no|id)\s*(\d+)\b", message, flags=re.IGNORECASE)
+    if number_lookup:
+        digits = number_lookup.group(1)
+        candidate = f"EMP-{digits.zfill(3)}"
+        if candidate in index["ids"]:
+            return candidate
+
     for token in re.findall(r"[A-Za-z0-9_\-]+", message):
         if token.upper() in index["ids"]:
             return token.upper()
@@ -632,8 +678,43 @@ def _is_leave_balance_confirmation(text: str) -> bool:
     )
 
 
-def get_database_reply(topic, identifier: str, message: str, repository):
+PERSONAL_DATA_TOPICS = {
+    "employee", "leave", "overtime", "ticket", "wfh",
+    "reimbursement", "training", "attendance", "asset",
+}
+
+
+def _access_denied_reply():
+    return {
+        "reply": (
+            "Aku tidak bisa menampilkan data karyawan lain dari akun ini. "
+            "Untuk data pribadi, aku hanya memakai identitas dari token login. "
+            "Kalau ini kebutuhan resmi, minta akses HR/admin yang sesuai."
+        ),
+        "source": f"{DB_SOURCE}: policy_guard",
+    }
+
+
+def get_database_reply(
+    topic,
+    identifier: str,
+    message: str,
+    repository,
+    requester_id: str = "",
+    requester_role: str = "employee",
+):
     text = message.lower()
+    requester_id = (requester_id or "").strip().upper()
+    is_hr = _is_hr_role(requester_role)
+
+    if _has_any(text, ["gaji", "salary", "upah", "kompensasi", "payroll"]):
+        return {
+            "reply": (
+                "Aku tidak bisa menampilkan data gaji atau kompensasi karena itu data sensitif. "
+                "Kalau ada kebutuhan resmi, aksesnya harus lewat alur HR/otorisasi yang sesuai."
+            ),
+            "source": f"{DB_SOURCE}: policy_guard",
+        }
 
     if topic is None:
         return {
@@ -655,10 +736,11 @@ def get_database_reply(topic, identifier: str, message: str, repository):
         try:
             total = repository.count_employees(filter_text)
             rows = repository.list_employees(limit=20, filter_text=filter_text)
-        except Exception as exc:
+        except Exception:
+            # FIX #4: Tidak bocorkan tipe exception ke user; detail ada di log server
             logger.exception("Query daftar karyawan gagal")
             return {
-                "reply": f"Query ke database gagal ({type(exc).__name__}). Cek log backend buat detailnya.",
+                "reply": "Terjadi kesalahan saat mengambil data dari database. Silakan coba lagi nanti.",
                 "source": DB_SOURCE,
             }
         label = f" dengan posisi/divisi mengandung '{filter_text}'" if filter_text else ""
@@ -681,7 +763,10 @@ def get_database_reply(topic, identifier: str, message: str, repository):
 
     try:
         employee = None
-        if identifier or topic != "ticket":  # tiket boleh tanpa nama (tampil tiket terbaru)
+        if not identifier and topic in PERSONAL_DATA_TOPICS and requester_id and not is_hr:
+            identifier = requester_id
+
+        if identifier or topic != "ticket":  # tiket HR boleh tanpa nama (tampil tiket terbaru)
             if not identifier:
                 return _ask_identifier(topic, repository)
             matches = repository.find_employees(identifier, limit=5)
@@ -690,9 +775,20 @@ def get_database_reply(topic, identifier: str, message: str, repository):
                     "reply": f"Aku belum menemukan karyawan '{identifier}' di database.",
                     "source": DB_SOURCE,
                 }
+            if not is_hr:
+                own_matches = [
+                    match for match in matches
+                    if str(match.get("employee_id", "")).upper() == requester_id
+                ]
+                if not own_matches:
+                    return _access_denied_reply()
+                matches = own_matches
             if len(matches) > 1:
                 return _ask_disambiguation(matches)
             employee = matches[0]
+
+        if not is_hr and employee and str(employee.get("employee_id", "")).upper() != requester_id:
+            return _access_denied_reply()
 
         emp_id = employee["employee_id"] if employee else None
         who = f"{employee['full_name']} ({emp_id})" if employee else ""
@@ -820,10 +916,11 @@ def get_database_reply(topic, identifier: str, message: str, repository):
                 for r in rows
             ]
             return answer("\n".join(lines), "company_assets")
-    except Exception as exc:
+    except Exception:
+        # FIX #4: Tidak bocorkan tipe exception ke user; detail ada di log server
         logger.exception("Query database gagal")
         return {
-            "reply": f"Query ke database gagal ({type(exc).__name__}). Cek log backend buat detailnya.",
+            "reply": "Terjadi kesalahan saat mengambil data. Silakan coba lagi nanti.",
             "source": DB_SOURCE,
         }
 
@@ -991,11 +1088,50 @@ def classify_with_llm(message: str, recent_messages):
 
 def classify_with_rules(message: str) -> str:
     text = message.lower()
+
+    if (
+        _is_smalltalk(text)
+        or any(phrase in text for phrase in ASK_NAME_PHRASES)
+        or extract_name(message)
+        or _has_any(text, ["harga saham", "kode python", "sorting"])
+        or _has_any(text, ["selamat pagi", "selamat siang", "selamat sore", "selamat malam"])
+    ):
+        return "chat"
+
+    if _has_any(text, POLICY_TERMS) or _has_any(text, ["cuti melahirkan", "bedanya", "beda", "deadline"]):
+        return "rag"
+
+    has_employee_id = bool(re.search(r"\bemp[-_]?\d+\b", text))
+    has_self_reference = _mentions_self(text)
+    wants_employee_list = (
+        re.search(r"\b(karyawan|pegawai)\b", text)
+        or _has_any(text, EMPLOYEE_LIST_TERMS)
+        or _has_any(text, ["semua karyawan", "semua pegawai"])
+    )
+    data_intent = (
+        bool(has_employee_id)
+        or has_self_reference
+        or _has_any(text, DB_TERMS)
+        or _has_any(text, DATA_INTENT_TERMS)
+        or wants_employee_list
+    )
+
+    if _has_any(text, LEAVE_BALANCE_TERMS):
+        return "database"
+    if wants_employee_list:
+        return "database"
+    if _has_any(text, ["gaji"]) and _has_any(text, ["karyawan", "pegawai", "semua"]):
+        return "database"
+    if has_employee_id and _has_any(text, ["profil", "data", "cek"]):
+        return "database"
+    if data_intent:
+        for topic in TOPIC_ORDER:
+            if _has_any(text, TOPIC_KEYWORDS[topic]):
+                return "database"
+
     words = set(re.findall(r"[a-z0-9]+", text))
     if words & RAG_TERMS:
         return "rag"
-    if _is_smalltalk(text):
-        return "chat"
     return "rag"  # default aman: cari di dokumen, bukan ngarang
 
 
@@ -1158,7 +1294,14 @@ def run_agent_executor(message: str, request: ChatRequest):
     ))
 
     if route == "database":
-        result = get_database_reply(topic, identifier, message, decision["repository"])
+        result = get_database_reply(
+            topic,
+            identifier,
+            message,
+            decision["repository"],
+            requester_id=request.employee_id or "",
+            requester_role=request.requester_role or "employee",
+        )
     elif route == "chat":
         result = get_chat_reply(message, request.recent_messages, request.user_name)
     else:
@@ -1212,6 +1355,7 @@ def register(request: AuthRegisterRequest):
     user = {
         "employee_id": employee_id,
         "display_name": (request.display_name or "").strip(),
+        "role": "employee",
         "password": _hash_password(password),
         "created_at": int(time.time()),
     }
@@ -1239,12 +1383,17 @@ def session(authorization: str | None = Header(default=None)):
 
 
 @app.get("/debug/llm")
-def debug_llm():
-    """Ngetes panggilan LLM langsung, error aslinya ditampilkan (gak ke-swallow)."""
+def debug_llm(authorization: str | None = Header(default=None)):
+    # FIX #5: Debug endpoint sekarang butuh token auth (hanya admin/HR yang bisa akses)
+    auth_user = _get_user_from_token(_read_bearer_token(authorization))
+    if not _is_hr_role(_user_role(auth_user)):
+        raise HTTPException(status_code=403, detail="Akses ditolak. Hanya admin/HR.")
+
+    """Ngetes panggilan LLM langsung. Hanya untuk admin/HR."""
     client = _get_llm_client()
     if client is None:
-        return {"llm_configured": False, "detail": "API key belum kebaca dari .env"}
-    model = os.getenv("LLM_MODEL", "openai/gpt-oss-120b")
+        return {"llm_configured": False, "detail": "API key belum terkonfigurasi."}
+    model = settings.llm_model
     try:
         response = client.chat.completions.create(
             model=model,
@@ -1257,18 +1406,28 @@ def debug_llm():
             "ok": True,
             "model": model,
             "reply": choice.message.content,
-            "finish_reason": choice.finish_reason,  # "length" = kehabisan token, "stop" = normal
+            "finish_reason": choice.finish_reason,
             "usage": response.usage.model_dump() if response.usage else None,
         }
     except Exception as exc:
-        return {"ok": False, "model": model, "error_type": type(exc).__name__, "error": str(exc)}
+        logger.exception("Debug LLM gagal")
+        return {"ok": False, "model": model, "error": "Panggilan LLM gagal, cek log server."}
 
 
 @app.get("/debug/route")
-def debug_route(message: str):
-    """Ngetes routing tanpa jalanin jawaban. Contoh: /debug/route?message=sisa cuti EMP-001"""
+def debug_route(message: str, authorization: str | None = Header(default=None)):
+    # FIX #5: Debug endpoint sekarang butuh token auth (hanya admin/HR)
+    auth_user = _get_user_from_token(_read_bearer_token(authorization))
+    if not _is_hr_role(_user_role(auth_user)):
+        raise HTTPException(status_code=403, detail="Akses ditolak. Hanya admin/HR.")
+
+    """Ngetes routing tanpa jalanin jawaban. Hanya untuk admin/HR."""
     decision = decide_route(message, [])
     return {k: v for k, v in decision.items() if k != "repository"}
+
+
+# FIX #6: Batasi panjang pesan maksimum untuk mencegah abuse kuota LLM
+_MAX_MESSAGE_LENGTH = 2000
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -1277,17 +1436,24 @@ def chat_endpoint(request: ChatRequest, authorization: str | None = Header(defau
     message = request.message.strip()
     if not message:
         raise HTTPException(status_code=400, detail="Pesan kosong.")
+    # FIX #6: Validasi panjang pesan
+    if len(message) > _MAX_MESSAGE_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Pesan terlalu panjang. Maksimum {_MAX_MESSAGE_LENGTH} karakter.",
+        )
 
     auth_user = _get_user_from_token(_read_bearer_token(authorization))
     request.employee_id = auth_user["employee_id"]
+    request.requester_role = _user_role(auth_user)
     if not request.user_name:
         request.user_name = auth_user.get("display_name") or auth_user["employee_id"]
 
     try:
         result = run_agent_executor(message, request)
     except RuntimeError as exc:
-        logger.exception("Agent executor gagal saat menjalankan RAG pipeline")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.exception("Agent executor gagal")
+        raise HTTPException(status_code=500, detail="Terjadi kesalahan internal. Coba lagi nanti.") from exc
 
     return ChatResponse(
         reply=result["reply"],

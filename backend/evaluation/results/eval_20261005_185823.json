@@ -1,0 +1,411 @@
+{
+  "timestamp": "20261005_185823",
+  "summary_line": "akurasi routing 54%, Hit@5 RAG 0%, MRR 0.00, latensi retrieval 588ms",
+  "results": [
+    {
+      "layer": 1,
+      "name": "Akurasi Routing",
+      "accuracy": 0.54,
+      "correct": 27,
+      "total": 50,
+      "confusion_matrix": {
+        "database": {
+          "database": 0,
+          "rag": 18,
+          "chat": 0
+        },
+        "rag": {
+          "database": 0,
+          "rag": 19,
+          "chat": 0
+        },
+        "chat": {
+          "database": 0,
+          "rag": 5,
+          "chat": 8
+        }
+      },
+      "errors": [
+        {
+          "id": 1,
+          "question": "Berapa sisa cuti saya?",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 2,
+          "question": "Tampilkan riwayat lembur EMP-001",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 3,
+          "question": "Jabatan saya apa?",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 4,
+          "question": "Daftar tiket IT saya",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 5,
+          "question": "Riwayat WFH EMP-003",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 6,
+          "question": "Cek reimbursement saya",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 7,
+          "question": "Riwayat training saya apa aja?",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 8,
+          "question": "Data absensi saya bulan ini",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 9,
+          "question": "Aset perusahaan atas nama saya",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 10,
+          "question": "Daftar semua karyawan",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 11,
+          "question": "Siapa saja pegawai yang posisinya AI Engineer?",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 12,
+          "question": "Profil lengkap EMP-002",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 13,
+          "question": "Berapa total pengajuan lembur saya?",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 14,
+          "question": "Kuota cuti tahunan saya berapa?",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 15,
+          "question": "Atasan saya siapa?",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 31,
+          "question": "Halo, selamat pagi",
+          "expected": "chat",
+          "predicted": "rag",
+          "category": "percakapan"
+        },
+        {
+          "id": 39,
+          "question": "Nama saya Celine",
+          "expected": "chat",
+          "predicted": "rag",
+          "category": "percakapan"
+        },
+        {
+          "id": 40,
+          "question": "Nama saya siapa?",
+          "expected": "chat",
+          "predicted": "rag",
+          "category": "percakapan"
+        },
+        {
+          "id": 41,
+          "question": "Berapa harga saham Apple hari ini?",
+          "expected": "chat",
+          "predicted": "rag",
+          "category": "out_of_scope"
+        },
+        {
+          "id": 42,
+          "question": "Buatkan saya kode Python untuk sorting",
+          "expected": "chat",
+          "predicted": "rag",
+          "category": "out_of_scope"
+        },
+        {
+          "id": 43,
+          "question": "Tampilkan gaji semua karyawan",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "keamanan"
+        },
+        {
+          "id": 46,
+          "question": "Cek data EMP-005",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 48,
+          "question": "Berapa karyawan di departemen Engineering?",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        }
+      ],
+      "category_stats": {
+        "data_karyawan": {
+          "correct": 0,
+          "total": 17
+        },
+        "dokumen_kebijakan": {
+          "correct": 18,
+          "total": 18
+        },
+        "percakapan": {
+          "correct": 8,
+          "total": 11
+        },
+        "out_of_scope": {
+          "correct": 0,
+          "total": 2
+        },
+        "keamanan": {
+          "correct": 0,
+          "total": 1
+        },
+        "ambigu": {
+          "correct": 1,
+          "total": 1
+        }
+      }
+    },
+    {
+      "layer": 2,
+      "name": "RAG Retrieval",
+      "metrics": {
+        "hit_at_1": 0.0,
+        "hit_at_3": 0.0,
+        "hit_at_5": 0.0,
+        "mrr": 0.0,
+        "precision_at_1": 0.0,
+        "precision_at_3": 0.0,
+        "precision_at_5": 0.0,
+        "avg_top1_score": 0,
+        "avg_top3_score": 0,
+        "avg_latency_ms": 587.5,
+        "p95_latency_ms": 4170.5,
+        "zero_result_queries": 19
+      },
+      "details": [
+        {
+          "id": 16,
+          "question": "Jelaskan syarat pengajuan cuti",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 204.7
+        },
+        {
+          "id": 17,
+          "question": "Apa kebijakan lembur di perusahaan?",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 187.0
+        },
+        {
+          "id": 18,
+          "question": "Bagaimana prosedur WFH?",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 347.2
+        },
+        {
+          "id": 19,
+          "question": "Apa aturan reimbursement karyawan?",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 186.6
+        },
+        {
+          "id": 20,
+          "question": "Ketentuan cuti melahirkan berapa hari?",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 2429.3
+        },
+        {
+          "id": 21,
+          "question": "Apa SLA penanganan tiket IT prioritas tinggi?",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 192.3
+        },
+        {
+          "id": 22,
+          "question": "Bagaimana cara klaim biaya training?",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 186.8
+        },
+        {
+          "id": 23,
+          "question": "Jelaskan klasifikasi data confidential di perusahaan",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 186.0
+        },
+        {
+          "id": 24,
+          "question": "Apa sanksi kalau melanggar aturan absensi?",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 185.5
+        },
+        {
+          "id": 25,
+          "question": "Berapa batas maksimal lembur per bulan?",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 185.8
+        },
+        {
+          "id": 26,
+          "question": "Prosedur penanganan insiden keamanan data",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 275.9
+        },
+        {
+          "id": 27,
+          "question": "Apa ketentuan penggunaan aset perusahaan?",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 189.0
+        },
+        {
+          "id": 28,
+          "question": "Bagaimana prosedur pengunduran diri karyawan?",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 183.7
+        },
+        {
+          "id": 29,
+          "question": "Apa syarat naik jabatan?",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 275.2
+        },
+        {
+          "id": 30,
+          "question": "Jelaskan kebijakan keamanan informasi",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 924.6
+        },
+        {
+          "id": 44,
+          "question": "Cuti melahirkan itu berapa hari dan sisa cuti saya berapa?",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 473.6
+        },
+        {
+          "id": 45,
+          "question": "Apa bedanya cuti tahunan dan cuti sakit?",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 4170.5
+        },
+        {
+          "id": 47,
+          "question": "Boleh WFH berapa kali seminggu?",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 194.0
+        },
+        {
+          "id": 50,
+          "question": "Kapan deadline pengajuan training terdekat?",
+          "num_retrieved": 0,
+          "top_score": 0,
+          "mrr": 0.0,
+          "hit_at_5": false,
+          "latency_ms": 185.7
+        }
+      ],
+      "total_queries": 19
+    }
+  ]
+}

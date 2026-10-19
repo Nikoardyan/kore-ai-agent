@@ -1,4 +1,23 @@
 services:
+  # FIX: Tambahkan service PostgreSQL sehingga `docker compose up` langsung bisa
+  # jalan tanpa setup database manual terlebih dahulu.
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: employee_agent
+      POSTGRES_USER: employee_agent
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-password}
+    ports:
+      - "55432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U employee_agent -d employee_agent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -6,11 +25,14 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://employee_agent:change-this-password@host.docker.internal:55432/employee_agent}
+      DATABASE_URL: postgresql://employee_agent:${POSTGRES_PASSWORD:-change-this-password}@postgres:5432/employee_agent
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
     command: uvicorn api:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
@@ -25,3 +47,6 @@ services:
     depends_on:
       - backend
     command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  postgres_data:

@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchAuthSession, loginEmployee, registerEmployee, sendMessage } from './backendClient'
 import './App.css'
 
+// FIX: Quick prompts diganti dengan contoh yang relevan untuk aplikasi HR,
+// bukan prompt untuk developer tools (Kubernetes, Go, CI/CD).
 const quickPrompts = [
-  'Audit Pipeline CI/CD Kubernetes',
-  'Refactoring API Gateway Go',
-  'Investigasi tiket email & SLA'
+  'Berapa sisa cuti saya?',
+  'Kebijakan WFH perusahaan bagaimana?',
+  'Tampilkan riwayat lembur saya'
 ]
 
 const executionModes = [

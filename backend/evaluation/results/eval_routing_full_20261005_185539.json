@@ -1,0 +1,66 @@
+{
+  "timestamp": "20261005_185539",
+  "evaluator": "decide_route (full routing)",
+  "accuracy": 0.96,
+  "correct": 48,
+  "total": 50,
+  "confusion_matrix": {
+    "database": {
+      "database": 18,
+      "rag": 0,
+      "chat": 0
+    },
+    "rag": {
+      "database": 2,
+      "rag": 17,
+      "chat": 0
+    },
+    "chat": {
+      "database": 0,
+      "rag": 0,
+      "chat": 13
+    }
+  },
+  "errors": [
+    {
+      "id": 44,
+      "question": "Cuti melahirkan itu berapa hari dan sisa cuti saya berapa?",
+      "expected": "rag",
+      "predicted": "database",
+      "category": "ambigu"
+    },
+    {
+      "id": 50,
+      "question": "Kapan deadline pengajuan training terdekat?",
+      "expected": "rag",
+      "predicted": "database",
+      "category": "dokumen_kebijakan"
+    }
+  ],
+  "category_stats": {
+    "data_karyawan": {
+      "correct": 17,
+      "total": 17
+    },
+    "dokumen_kebijakan": {
+      "correct": 17,
+      "total": 18
+    },
+    "percakapan": {
+      "correct": 11,
+      "total": 11
+    },
+    "out_of_scope": {
+      "correct": 2,
+      "total": 2
+    },
+    "keamanan": {
+      "correct": 1,
+      "total": 1
+    },
+    "ambigu": {
+      "correct": 0,
+      "total": 1
+    }
+  }
+}

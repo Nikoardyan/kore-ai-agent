@@ -11,6 +11,7 @@ class ChatRequest(BaseModel):
     message: str
     user_name: Optional[str] = None
     employee_id: Optional[str] = None
+    requester_role: Optional[str] = None
     recent_messages: list[ChatMessage] = Field(default_factory=list)
 
 class AgentStep(BaseModel):
@@ -35,6 +36,7 @@ class AuthLoginRequest(BaseModel):
 class AuthUser(BaseModel):
     employee_id: str
     display_name: Optional[str] = None
+    role: str = "employee"
 
 class AuthResponse(BaseModel):
     token: str

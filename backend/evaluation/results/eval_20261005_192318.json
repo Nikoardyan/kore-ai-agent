@@ -1,0 +1,74 @@
+{
+  "timestamp": "20261005_192318",
+  "summary_line": "akurasi routing 98%",
+  "results": [
+    {
+      "layer": 1,
+      "name": "Akurasi Routing",
+      "accuracy": 0.98,
+      "correct": 49,
+      "total": 50,
+      "confusion_matrix": {
+        "database": {
+          "database": 18,
+          "rag": 0,
+          "chat": 0,
+          "ambigu": 0
+        },
+        "rag": {
+          "database": 0,
+          "rag": 18,
+          "chat": 0,
+          "ambigu": 0
+        },
+        "chat": {
+          "database": 0,
+          "rag": 0,
+          "chat": 13,
+          "ambigu": 0
+        },
+        "ambigu": {
+          "database": 0,
+          "rag": 1,
+          "chat": 0,
+          "ambigu": 0
+        }
+      },
+      "errors": [
+        {
+          "id": 16,
+          "question": "Jelaskan syarat pengajuan cuti",
+          "expected": "ambigu",
+          "predicted": "rag",
+          "category": "dokumen_kebijakan"
+        }
+      ],
+      "category_stats": {
+        "data_karyawan": {
+          "correct": 17,
+          "total": 17
+        },
+        "dokumen_kebijakan": {
+          "correct": 17,
+          "total": 18
+        },
+        "percakapan": {
+          "correct": 11,
+          "total": 11
+        },
+        "out_of_scope": {
+          "correct": 2,
+          "total": 2
+        },
+        "keamanan": {
+          "correct": 1,
+          "total": 1
+        },
+        "ambigu": {
+          "correct": 1,
+          "total": 1
+        }
+      }
+    }
+  ]
+}

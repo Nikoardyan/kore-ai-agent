@@ -1,0 +1,86 @@
+{
+  "timestamp": "20261005_191831",
+  "summary_line": "akurasi routing 92%",
+  "results": [
+    {
+      "layer": 1,
+      "name": "Akurasi Routing",
+      "accuracy": 0.92,
+      "correct": 46,
+      "total": 50,
+      "confusion_matrix": {
+        "database": {
+          "database": 16,
+          "rag": 2,
+          "chat": 0
+        },
+        "rag": {
+          "database": 1,
+          "rag": 18,
+          "chat": 0
+        },
+        "chat": {
+          "database": 0,
+          "rag": 1,
+          "chat": 12
+        }
+      },
+      "errors": [
+        {
+          "id": 12,
+          "question": "Profil lengkap EMP-002",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 31,
+          "question": "Halo, selamat pagi",
+          "expected": "chat",
+          "predicted": "rag",
+          "category": "percakapan"
+        },
+        {
+          "id": 46,
+          "question": "Cek data EMP-005",
+          "expected": "database",
+          "predicted": "rag",
+          "category": "data_karyawan"
+        },
+        {
+          "id": 50,
+          "question": "Kapan deadline pengajuan training terdekat?",
+          "expected": "rag",
+          "predicted": "database",
+          "category": "dokumen_kebijakan"
+        }
+      ],
+      "category_stats": {
+        "data_karyawan": {
+          "correct": 15,
+          "total": 17
+        },
+        "dokumen_kebijakan": {
+          "correct": 17,
+          "total": 18
+        },
+        "percakapan": {
+          "correct": 10,
+          "total": 11
+        },
+        "out_of_scope": {
+          "correct": 2,
+          "total": 2
+        },
+        "keamanan": {
+          "correct": 1,
+          "total": 1
+        },
+        "ambigu": {
+          "correct": 1,
+          "total": 1
+        }
+      }
+    }
+  ]
+}

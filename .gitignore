@@ -1,71 +1,4 @@
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# Node / Frontend
-node_modules/
-dist/
-dist-ssr/
-*.local
-
-# IDEs and Editors
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Databases
-*.sqlite3
-*.db
-
-# Local auth data
-backend/auth_users.json
-backend/.auth_secret
-*.bak
-
-cat > .gitignore << 'EOF'
-# Environments (rahasia, jangan di-commit)
+# Environments (rahasia, jangan di-commit!)
 .env
 .env.*
 !.env.example
@@ -98,19 +31,20 @@ dist-ssr/
 logs/
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Database lokal
 *.sqlite
 *.sqlite3
 *.db
 
-# Data login lokal
+# Data login lokal (auth_users.json berisi password hash, jangan di-commit)
 backend/auth_users.json
 backend/.auth_secret
 
-# Cadangan
+# File cadangan / backup
 *.bak
 
-# Dokumen internal (buka komentar kalau PDF-nya data asli)
+# Dokumen internal (aktifkan baris ini kalau PDF berisi data asli sensitif)
 # backend/data/*.pdf
-EOF

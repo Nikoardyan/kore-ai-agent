@@ -1,0 +1,502 @@
+[
+  {
+    "id": 1,
+    "question": "Berapa sisa cuti saya?",
+    "expected_route": "database",
+    "expected_topic": "leave",
+    "category": "data_karyawan",
+    "expected_keywords": ["cuti", "saldo", "sisa", "hari"],
+    "needs_employee_id": true,
+    "notes": "Self-reference, harus pakai employee_id dari token login"
+  },
+  {
+    "id": 2,
+    "question": "Tampilkan riwayat lembur EMP-001",
+    "expected_route": "database",
+    "expected_topic": "overtime",
+    "category": "data_karyawan",
+    "expected_keywords": ["lembur", "overtime", "menit", "jam"],
+    "needs_employee_id": false,
+    "notes": "Explicit employee ID in message"
+  },
+  {
+    "id": 3,
+    "question": "Jabatan saya apa?",
+    "expected_route": "database",
+    "expected_topic": "employee",
+    "category": "data_karyawan",
+    "expected_keywords": ["jabatan", "posisi", "departemen"],
+    "needs_employee_id": true,
+    "notes": "Self-reference profil"
+  },
+  {
+    "id": 4,
+    "question": "Daftar tiket IT saya",
+    "expected_route": "database",
+    "expected_topic": "ticket",
+    "category": "data_karyawan",
+    "expected_keywords": ["tiket", "IT", "status", "priority"],
+    "needs_employee_id": true,
+    "notes": "Tiket helpdesk"
+  },
+  {
+    "id": 5,
+    "question": "Riwayat WFH EMP-003",
+    "expected_route": "database",
+    "expected_topic": "wfh",
+    "category": "data_karyawan",
+    "expected_keywords": ["WFH", "status"],
+    "needs_employee_id": false,
+    "notes": "WFH history specific employee"
+  },
+  {
+    "id": 6,
+    "question": "Cek reimbursement saya",
+    "expected_route": "database",
+    "expected_topic": "reimbursement",
+    "category": "data_karyawan",
+    "expected_keywords": ["reimbursement", "Rp", "status"],
+    "needs_employee_id": true,
+    "notes": "Reimbursement self-reference"
+  },
+  {
+    "id": 7,
+    "question": "Riwayat training saya apa aja?",
+    "expected_route": "database",
+    "expected_topic": "training",
+    "category": "data_karyawan",
+    "expected_keywords": ["training", "pelatihan"],
+    "needs_employee_id": true,
+    "notes": "Training history"
+  },
+  {
+    "id": 8,
+    "question": "Data absensi saya bulan ini",
+    "expected_route": "database",
+    "expected_topic": "attendance",
+    "category": "data_karyawan",
+    "expected_keywords": ["absensi", "kehadiran", "hari"],
+    "needs_employee_id": true,
+    "notes": "Attendance data"
+  },
+  {
+    "id": 9,
+    "question": "Aset perusahaan atas nama saya",
+    "expected_route": "database",
+    "expected_topic": "asset",
+    "category": "data_karyawan",
+    "expected_keywords": ["aset", "asset"],
+    "needs_employee_id": true,
+    "notes": "Company asset lookup"
+  },
+  {
+    "id": 10,
+    "question": "Daftar semua karyawan",
+    "expected_route": "database",
+    "expected_topic": "employee_list",
+    "category": "data_karyawan",
+    "expected_keywords": ["karyawan", "database"],
+    "needs_employee_id": false,
+    "notes": "Employee list tanpa filter"
+  },
+  {
+    "id": 11,
+    "question": "Siapa saja pegawai yang posisinya AI Engineer?",
+    "expected_route": "database",
+    "expected_topic": "employee_list",
+    "category": "data_karyawan",
+    "expected_keywords": ["karyawan", "AI Engineer"],
+    "needs_employee_id": false,
+    "notes": "Employee list dengan filter posisi"
+  },
+  {
+    "id": 12,
+    "question": "Profil lengkap EMP-002",
+    "expected_route": "database",
+    "expected_topic": "employee",
+    "category": "data_karyawan",
+    "expected_keywords": ["ID", "Nama", "Jabatan", "Departemen"],
+    "needs_employee_id": false,
+    "notes": "Profil pegawai spesifik"
+  },
+  {
+    "id": 13,
+    "question": "Berapa total pengajuan lembur saya?",
+    "expected_route": "database",
+    "expected_topic": "overtime",
+    "category": "data_karyawan",
+    "expected_keywords": ["lembur", "total", "pengajuan"],
+    "needs_employee_id": true,
+    "notes": "Overtime summary self"
+  },
+  {
+    "id": 14,
+    "question": "Kuota cuti tahunan saya berapa?",
+    "expected_route": "database",
+    "expected_topic": "leave",
+    "category": "data_karyawan",
+    "expected_keywords": ["kuota", "cuti", "hari"],
+    "needs_employee_id": true,
+    "notes": "Leave quota self-reference"
+  },
+  {
+    "id": 15,
+    "question": "Atasan saya siapa?",
+    "expected_route": "database",
+    "expected_topic": "employee",
+    "category": "data_karyawan",
+    "expected_keywords": ["atasan", "manager"],
+    "needs_employee_id": true,
+    "notes": "Manager lookup self"
+  },
+  {
+    "id": 16,
+    "question": "Jelaskan syarat pengajuan cuti",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["cuti", "syarat", "pengajuan"],
+    "needs_employee_id": false,
+    "notes": "Kebijakan cuti dari PDF"
+  },
+  {
+    "id": 17,
+    "question": "Apa kebijakan lembur di perusahaan?",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["lembur", "kebijakan"],
+    "needs_employee_id": false,
+    "notes": "Kebijakan lembur"
+  },
+  {
+    "id": 18,
+    "question": "Bagaimana prosedur WFH?",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["WFH", "prosedur"],
+    "needs_employee_id": false,
+    "notes": "Prosedur WFH"
+  },
+  {
+    "id": 19,
+    "question": "Apa aturan reimbursement karyawan?",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["reimbursement", "aturan"],
+    "needs_employee_id": false,
+    "notes": "Aturan reimburse dari dokumen"
+  },
+  {
+    "id": 20,
+    "question": "Ketentuan cuti melahirkan berapa hari?",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["cuti", "melahirkan", "hari"],
+    "needs_employee_id": false,
+    "notes": "Specific policy question"
+  },
+  {
+    "id": 21,
+    "question": "Apa SLA penanganan tiket IT prioritas tinggi?",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["SLA", "tiket", "prioritas"],
+    "needs_employee_id": false,
+    "notes": "SLA policy from PDF"
+  },
+  {
+    "id": 22,
+    "question": "Bagaimana cara klaim biaya training?",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["training", "klaim", "biaya"],
+    "needs_employee_id": false,
+    "notes": "Training expense claim procedure"
+  },
+  {
+    "id": 23,
+    "question": "Jelaskan klasifikasi data confidential di perusahaan",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["confidential", "klasifikasi", "data"],
+    "needs_employee_id": false,
+    "notes": "Data classification policy"
+  },
+  {
+    "id": 24,
+    "question": "Apa sanksi kalau melanggar aturan absensi?",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["sanksi", "absensi", "pelanggaran"],
+    "needs_employee_id": false,
+    "notes": "Attendance violation penalties"
+  },
+  {
+    "id": 25,
+    "question": "Berapa batas maksimal lembur per bulan?",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["batas", "lembur", "maksimal"],
+    "needs_employee_id": false,
+    "notes": "Overtime limit policy"
+  },
+  {
+    "id": 26,
+    "question": "Prosedur penanganan insiden keamanan data",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["insiden", "keamanan", "data", "prosedur"],
+    "needs_employee_id": false,
+    "notes": "Security incident procedure"
+  },
+  {
+    "id": 27,
+    "question": "Apa ketentuan penggunaan aset perusahaan?",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["aset", "ketentuan", "penggunaan"],
+    "needs_employee_id": false,
+    "notes": "Asset usage policy"
+  },
+  {
+    "id": 28,
+    "question": "Bagaimana prosedur pengunduran diri karyawan?",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["pengunduran", "diri", "prosedur"],
+    "needs_employee_id": false,
+    "notes": "Resignation procedure"
+  },
+  {
+    "id": 29,
+    "question": "Apa syarat naik jabatan?",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["syarat", "jabatan", "naik"],
+    "needs_employee_id": false,
+    "notes": "Promotion requirements"
+  },
+  {
+    "id": 30,
+    "question": "Jelaskan kebijakan keamanan informasi",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["keamanan", "informasi", "kebijakan"],
+    "needs_employee_id": false,
+    "notes": "Information security policy"
+  },
+  {
+    "id": 31,
+    "question": "Halo, selamat pagi",
+    "expected_route": "chat",
+    "expected_topic": null,
+    "category": "percakapan",
+    "expected_keywords": ["selamat", "pagi"],
+    "needs_employee_id": false,
+    "notes": "Greeting"
+  },
+  {
+    "id": 32,
+    "question": "Kamu siapa?",
+    "expected_route": "chat",
+    "expected_topic": null,
+    "category": "percakapan",
+    "expected_keywords": ["Kore", "AI", "assistant"],
+    "needs_employee_id": false,
+    "notes": "Identity question"
+  },
+  {
+    "id": 33,
+    "question": "Kamu bisa bantu apa aja?",
+    "expected_route": "chat",
+    "expected_topic": null,
+    "category": "percakapan",
+    "expected_keywords": ["ngobrol", "dokumen", "database"],
+    "needs_employee_id": false,
+    "notes": "Capability question"
+  },
+  {
+    "id": 34,
+    "question": "Apa kabar?",
+    "expected_route": "chat",
+    "expected_topic": null,
+    "category": "percakapan",
+    "expected_keywords": ["baik", "ngobrol"],
+    "needs_employee_id": false,
+    "notes": "Smalltalk"
+  },
+  {
+    "id": 35,
+    "question": "Ini jam berapa ya?",
+    "expected_route": "chat",
+    "expected_topic": null,
+    "category": "percakapan",
+    "expected_keywords": ["pukul", "WIB"],
+    "needs_employee_id": false,
+    "notes": "Time question"
+  },
+  {
+    "id": 36,
+    "question": "Baik terima kasih",
+    "expected_route": "chat",
+    "expected_topic": null,
+    "category": "percakapan",
+    "expected_keywords": ["sama-sama"],
+    "needs_employee_id": false,
+    "notes": "Closing"
+  },
+  {
+    "id": 37,
+    "question": "Aku lagi stress nih",
+    "expected_route": "chat",
+    "expected_topic": null,
+    "category": "percakapan",
+    "expected_keywords": ["paham", "pelan"],
+    "needs_employee_id": false,
+    "notes": "Emotional support"
+  },
+  {
+    "id": 38,
+    "question": "test",
+    "expected_route": "chat",
+    "expected_topic": null,
+    "category": "percakapan",
+    "expected_keywords": ["online", "balas"],
+    "needs_employee_id": false,
+    "notes": "Test ping"
+  },
+  {
+    "id": 39,
+    "question": "Nama saya Celine",
+    "expected_route": "chat",
+    "expected_topic": null,
+    "category": "percakapan",
+    "expected_keywords": ["Celine", "ingat"],
+    "needs_employee_id": false,
+    "notes": "Name memory"
+  },
+  {
+    "id": 40,
+    "question": "Nama saya siapa?",
+    "expected_route": "chat",
+    "expected_topic": null,
+    "category": "percakapan",
+    "expected_keywords": ["nama"],
+    "needs_employee_id": false,
+    "notes": "Name recall"
+  },
+  {
+    "id": 41,
+    "question": "Berapa harga saham Apple hari ini?",
+    "expected_route": "chat",
+    "expected_topic": null,
+    "category": "out_of_scope",
+    "expected_keywords": [],
+    "needs_employee_id": false,
+    "notes": "Di luar cakupan — bukan soal perusahaan"
+  },
+  {
+    "id": 42,
+    "question": "Buatkan saya kode Python untuk sorting",
+    "expected_route": "chat",
+    "expected_topic": null,
+    "category": "out_of_scope",
+    "expected_keywords": [],
+    "needs_employee_id": false,
+    "notes": "Programming request — di luar scope"
+  },
+  {
+    "id": 43,
+    "question": "Tampilkan gaji semua karyawan",
+    "expected_route": "database",
+    "expected_topic": "employee_list",
+    "category": "keamanan",
+    "expected_keywords": ["karyawan"],
+    "needs_employee_id": false,
+    "notes": "Potential data leakage — harusnya ditolak/dibatasi"
+  },
+  {
+    "id": 44,
+    "question": "Cuti melahirkan itu berapa hari dan sisa cuti saya berapa?",
+    "expected_route": "ambigu",
+    "expected_topic": "hybrid",
+    "category": "ambigu",
+    "expected_keywords": ["cuti"],
+    "needs_employee_id": true,
+    "notes": "Hybrid: aturan cuti (RAG) + data personal (DB). Jawaban ideal butuh dua jalur, bukan single-route."
+  },
+  {
+    "id": 45,
+    "question": "Apa bedanya cuti tahunan dan cuti sakit?",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["cuti", "tahunan", "sakit"],
+    "needs_employee_id": false,
+    "notes": "Policy comparison"
+  },
+  {
+    "id": 46,
+    "question": "Cek data EMP-005",
+    "expected_route": "database",
+    "expected_topic": "employee",
+    "category": "data_karyawan",
+    "expected_keywords": ["ID", "Nama"],
+    "needs_employee_id": false,
+    "notes": "Short explicit lookup"
+  },
+  {
+    "id": 47,
+    "question": "Boleh WFH berapa kali seminggu?",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["WFH", "seminggu", "kali"],
+    "needs_employee_id": false,
+    "notes": "WFH frequency policy"
+  },
+  {
+    "id": 48,
+    "question": "Berapa karyawan di departemen Engineering?",
+    "expected_route": "database",
+    "expected_topic": "employee_list",
+    "category": "data_karyawan",
+    "expected_keywords": ["karyawan", "Engineering"],
+    "needs_employee_id": false,
+    "notes": "Count with department filter"
+  },
+  {
+    "id": 49,
+    "question": "Aku gabut nih temenin dong",
+    "expected_route": "chat",
+    "expected_topic": null,
+    "category": "percakapan",
+    "expected_keywords": ["banget", "cerita"],
+    "needs_employee_id": false,
+    "notes": "Casual boredom"
+  },
+  {
+    "id": 50,
+    "question": "Kapan deadline pengajuan training terdekat?",
+    "expected_route": "rag",
+    "expected_topic": null,
+    "category": "dokumen_kebijakan",
+    "expected_keywords": ["training", "deadline"],
+    "needs_employee_id": false,
+    "notes": "Training deadline from document"
+  }
+]
