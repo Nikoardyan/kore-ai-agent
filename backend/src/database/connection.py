@@ -40,11 +40,16 @@ def get_db_connection():
     finally:
         connection.close()
 
-
 def initialize_database():
-    """Skema & data sudah disiapkan lewat `docker compose --profile seed`.
-    Di sini cuma mengecek koneksi ke Postgres hidup saat server start,
-    supaya error konfigurasi ketahuan langsung, bukan pas ada chat masuk."""
-    with get_db_connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
+    """Skema & data sudah disiapkan lewat docker-compose.
+    Mengecek koneksi ke Postgres jika URL tersedia, tanpa membuat server crash jika DB offline."""
+    db_url = getattr(settings, "database_url", "")
+    if not db_url or not db_url.startswith(("postgresql://", "postgres://", "postgresql+psycopg://")):
+        return
+    try:
+        with get_db_connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+    except Exception as exc:
+        import logging
+        logging.getLogger("kore.db").warning("Database belum terhubung: %s", exc)

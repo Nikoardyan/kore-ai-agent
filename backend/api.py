@@ -155,9 +155,15 @@ CHAT_SYSTEM = (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Server starting up...")
-    initialize_database()
-    pipeline = get_rag_pipeline()
-    print(f"Knowledge base loaded: {pipeline.chunk_count} chunks from {pipeline.loaded_files}")
+    try:
+        initialize_database()
+    except Exception as exc:
+        logger.warning("Database init warning: %s", exc)
+    try:
+        pipeline = get_rag_pipeline()
+        print(f"Knowledge base loaded: {pipeline.chunk_count} chunks from {pipeline.loaded_files}")
+    except Exception as exc:
+        logger.warning("RAG pipeline init warning: %s", exc)
     yield
     print("Server shutting down...")
 
