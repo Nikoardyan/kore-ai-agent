@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { fetchAuthSession, loginEmployee, registerEmployee, sendMessage } from './backendClient'
+import { API_BASE_URL, fetchAuthSession, loginEmployee, registerEmployee, sendMessage } from './backendClient'
 import './App.css'
 
 // FIX: Quick prompts diganti dengan contoh yang relevan untuk aplikasi HR,
@@ -528,8 +528,8 @@ function App() {
         role: 'ai',
         mode: 'System Notice',
         status: 'Backend connection failed',
-        checks: ['Memeriksa endpoint http://localhost:8000/chat'],
-        content: 'Maaf, server belum merespons. Pastikan backend FastAPI berjalan di http://localhost:8000.',
+        checks: [`Memeriksa endpoint ${API_BASE_URL}/chat`],
+        content: `Maaf, server belum merespons. Pastikan backend FastAPI berjalan di ${API_BASE_URL}.`,
         source: 'System status',
         time: 'Baru Saja',
         liked: false,
