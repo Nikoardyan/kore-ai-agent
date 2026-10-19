@@ -170,15 +170,26 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AI Agentic 1", version="v1.1.0", lifespan=lifespan)
 
-# FIX #1: CORS — gunakan daftar origin spesifik dari .env (ALLOWED_ORIGINS),
-# bukan wildcard "*" yang membiarkan semua domain mengakses API.
+# CORS konfigurasi
 _allowed_origins = settings.get_allowed_origins()
+_env_origins = os.getenv("ALLOWED_ORIGINS", "")
+if _env_origins:
+    for _o in _env_origins.split(","):
+        _clean = _o.strip()
+        if _clean and _clean not in _allowed_origins:
+            _allowed_origins.append(_clean)
+
+for _d in ["https://kore-ai-agent.vercel.app", "http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"]:
+    if _d not in _allowed_origins:
+        _allowed_origins.append(_d)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
+    allow_origin_regex=r"^https://.*\.vercel\.app$",
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
