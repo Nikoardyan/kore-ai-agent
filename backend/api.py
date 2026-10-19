@@ -762,7 +762,7 @@ def get_database_reply(
             "source": DB_SOURCE,
         }
     if repository is None:
-        return {"reply": "Koneksi ke database lagi bermasalah. Cek log backend.", "source": DB_SOURCE}
+        return {"reply": "", "source": DB_SOURCE, "_fallback_to_rag": True, "_original_message": "Database tidak tersedia"}
 
     def answer(reply: str, table: str):
         return {"reply": reply, "source": f"{DB_SOURCE}: {table}"}
@@ -953,14 +953,13 @@ def get_database_reply(
             ]
             return answer("\n".join(lines), "company_assets")
     except Exception:
-        # FIX #4: Tidak bocorkan tipe exception ke user; detail ada di log server
-        logger.exception("Query database gagal")
+        # Database offline/error -> sinyal fallback ke RAG pipeline
+        logger.exception("Query database gagal, akan fallback ke RAG")
         return {
-            "reply": (
-                "Database PostgreSQL saat ini belum terhubung di cloud (hanya aktif di lingkungan lokal docker). "
-                "Untuk demo kemampuan AI & RAG dokumen perusahaan, kamu bisa tanyakan seputar kebijakan cuti, jam kerja, atau aturan WFH."
-            ),
+            "reply": "",
             "source": DB_SOURCE,
+            "_fallback_to_rag": True,
+            "_original_message": "Database query gagal",
         }
 
     return {
@@ -1341,6 +1340,16 @@ def run_agent_executor(message: str, request: ChatRequest):
             requester_id=request.employee_id or "",
             requester_role=request.requester_role or "employee",
         )
+        # Fallback: kalau database offline/error, otomatis cari jawaban dari PDF knowledge base
+        if result.get("_fallback_to_rag"):
+            logger.info("Database fallback ke RAG: %s", result.get("_original_message", ""))
+            steps.append(_agent_step(
+                "Database tidak tersedia, otomatis beralih ke pencarian dokumen PDF.",
+                "fallback_to_rag",
+                result.get("_original_message", "DB offline"),
+            ))
+            result = get_rag_reply(message, request.recent_messages)
+            route = "rag"  # update route label for final step
     elif route == "chat":
         result = get_chat_reply(message, request.recent_messages, request.user_name)
     else:
