@@ -236,6 +236,75 @@ def _get_auth_secret() -> bytes:
     return b"kore-ai-default-auth-token-secret-key-2026"
 
 
+def _get_user_by_id(employee_id: str) -> dict | None:
+    norm_id = (employee_id or "").strip()
+    if not norm_id:
+        return None
+    key = norm_id.lower()
+
+    # 1. Coba cari di PostgreSQL (Neon)
+    try:
+        from src.database.connection import get_db_connection
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT employee_id, display_name, role, password_hash, password_salt, created_at FROM app_users WHERE LOWER(employee_id) = LOWER(%s) LIMIT 1",
+                    (norm_id,)
+                )
+                row = cur.fetchone()
+                if row:
+                    return {
+                        "employee_id": row["employee_id"],
+                        "display_name": row.get("display_name") or "",
+                        "role": row.get("role") or "employee",
+                        "password": {
+                            "hash": row["password_hash"],
+                            "salt": row["password_salt"],
+                        },
+                        "created_at": row.get("created_at") or 0,
+                    }
+    except Exception as exc:
+        logger.warning("Gagal membaca user dari DB, fallback ke file: %s", exc)
+
+    # 2. Fallback ke file JSON lokal
+    return _load_auth_users().get(key)
+
+
+def _save_new_user(user: dict):
+    norm_id = user["employee_id"].strip()
+    key = norm_id.lower()
+    pw = user.get("password") or {}
+
+    # 1. Simpan permanen ke PostgreSQL (Neon)
+    try:
+        from src.database.connection import get_db_connection
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO app_users (employee_id, display_name, role, password_hash, password_salt, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (employee_id) DO UPDATE SET
+                        display_name = EXCLUDED.display_name,
+                        password_hash = EXCLUDED.password_hash,
+                        password_salt = EXCLUDED.password_salt;
+                """, (
+                    norm_id,
+                    user.get("display_name") or "",
+                    user.get("role") or "employee",
+                    pw.get("hash") or "",
+                    pw.get("salt") or "",
+                    user.get("created_at") or int(time.time()),
+                ))
+            conn.commit()
+    except Exception as exc:
+        logger.warning("Gagal menyimpan user ke DB, simpan ke file: %s", exc)
+
+    # 2. Selalu simpan juga ke cache file lokal
+    users = _load_auth_users()
+    users[key] = user
+    _save_auth_users(users)
+
+
 def _get_user_from_token(token: str) -> dict:
     try:
         payload_part, signature_part = token.split(".", 1)
@@ -251,7 +320,7 @@ def _get_user_from_token(token: str) -> dict:
     if int(payload.get("exp", 0)) < int(time.time()):
         raise HTTPException(status_code=401, detail="Session token sudah kedaluwarsa.")
 
-    user = _load_auth_users().get(_employee_key(payload.get("sub", "")))
+    user = _get_user_by_id(payload.get("sub", ""))
     if not user:
         # Di serverless, jika user register di instance lain, token yang sudah terverifikasi
         # tanda tangannya tetap valid dan user dikonstruksi dari payload
@@ -1409,9 +1478,7 @@ def register(request: AuthRegisterRequest):
     password = request.password
     _validate_auth_input(employee_id, password)
 
-    users = _load_auth_users()
-    key = _employee_key(employee_id)
-    if key in users:
+    if _get_user_by_id(employee_id) is not None:
         raise HTTPException(status_code=409, detail="ID karyawan sudah terdaftar.")
 
     user = {
@@ -1421,8 +1488,7 @@ def register(request: AuthRegisterRequest):
         "password": _hash_password(password),
         "created_at": int(time.time()),
     }
-    users[key] = user
-    _save_auth_users(users)
+    _save_new_user(user)
     return _auth_response(user)
 
 
@@ -1432,7 +1498,7 @@ def login(request: AuthLoginRequest):
     password = request.password
     _validate_auth_input(employee_id, password)
 
-    user = _load_auth_users().get(_employee_key(employee_id))
+    user = _get_user_by_id(employee_id)
     if not user or not _verify_password(password, user):
         raise HTTPException(status_code=401, detail="ID karyawan atau kata sandi salah.")
     return _auth_response(user)

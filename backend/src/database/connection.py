@@ -42,15 +42,23 @@ def get_db_connection():
         connection.close()
 
 def initialize_database():
-    """Skema & data sudah disiapkan lewat docker-compose.
-    Mengecek koneksi ke Postgres jika URL tersedia, tanpa membuat server crash jika DB offline."""
+    """Mengecek koneksi ke Postgres dan memastikan tabel app_users tersedia."""
     db_url = getattr(settings, "database_url", "")
     if not db_url or not db_url.startswith(("postgresql://", "postgres://", "postgresql+psycopg://")):
         return
     try:
         with get_db_connection() as connection:
             with connection.cursor() as cursor:
-                cursor.execute("SELECT 1")
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS app_users (
+                        employee_id VARCHAR(64) PRIMARY KEY,
+                        display_name VARCHAR(128),
+                        role VARCHAR(32) DEFAULT 'employee',
+                        password_hash TEXT,
+                        password_salt TEXT,
+                        created_at BIGINT
+                    );
+                """)
     except Exception as exc:
         import logging
         logging.getLogger("kore.db").warning("Database belum terhubung: %s", exc)
