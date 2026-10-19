@@ -28,7 +28,9 @@ class Embeddings:
         self.client = OpenAI(api_key=api_key or "dummy", base_url=base_url)
 
     def embed_text(self, text: str):
-        if not text.strip():
+        if not text.strip() or (self.api_key and self.api_key.startswith("gsk_")):
+            # Groq hanya mendukung chat/completions, bukan embeddings.
+            # RAG secara otomatis menggunakan TF-IDF / lexical matching yang cepat & akurat.
             return []
         try:
             response = self.client.embeddings.create(

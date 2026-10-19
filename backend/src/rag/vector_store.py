@@ -21,26 +21,46 @@ class VectorStore:
 
     def similarity_search(self, query: str, top_k: int = 5):
         query_embedding = self.embedder.embed_text(query)
-        if not query_embedding or not self.documents:
+        results = []
+        if query_embedding:
+            for document in self.documents:
+                doc_embedding = document.get("embedding", [])
+                if not doc_embedding:
+                    continue
+                score = self._cosine_similarity(query_embedding, doc_embedding)
+                if score > 0.35:
+                    results.append({
+                        "content": document["content"],
+                        "metadata": document.get("metadata", {}),
+                        "score": round(score, 4)
+                    })
+            if results:
+                return sorted(results, key=lambda item: item["score"], reverse=True)[:top_k]
+
+        # FALLBACK: Keyword / Lexical matching (ketika pakai Groq / tanpa OpenAI embedding)
+        return self._keyword_search(query, top_k=top_k)
+
+    def _keyword_search(self, query: str, top_k: int = 5):
+        import re
+        tokens = [t.lower() for t in re.findall(r"\w+", query) if len(t) > 2]
+        if not tokens or not self.documents:
             return []
 
-        results = []
+        scored = []
         for document in self.documents:
-            doc_embedding = document.get("embedding", [])
-            if not doc_embedding:
-                continue
-
-            score = self._cosine_similarity(query_embedding, doc_embedding)
-            
-            # Threshold: Hanya terima dokumen dengan kemiripan di atas 0.35
-            if score > 0.35:
-                results.append({
-                    "content": document["content"],
+            content = document.get("content", "")
+            lower_content = content.lower()
+            matched = sum(1 for t in tokens if t in lower_content)
+            if matched > 0:
+                overlap = matched / len(tokens)
+                score = round(min(0.95, 0.45 + overlap * 0.5), 4)
+                scored.append({
+                    "content": content,
                     "metadata": document.get("metadata", {}),
-                    "score": round(score, 4)
+                    "score": score
                 })
 
-        return sorted(results, key=lambda item: item["score"], reverse=True)[:top_k]
+        return sorted(scored, key=lambda item: item["score"], reverse=True)[:top_k]
         
     @staticmethod
     def _cosine_similarity(v1, v2):

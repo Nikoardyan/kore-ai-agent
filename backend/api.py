@@ -946,7 +946,10 @@ def get_database_reply(
         # FIX #4: Tidak bocorkan tipe exception ke user; detail ada di log server
         logger.exception("Query database gagal")
         return {
-            "reply": "Terjadi kesalahan saat mengambil data. Silakan coba lagi nanti.",
+            "reply": (
+                "Database PostgreSQL saat ini belum terhubung di cloud (hanya aktif di lingkungan lokal docker). "
+                "Untuk demo kemampuan AI & RAG dokumen perusahaan, kamu bisa tanyakan seputar kebijakan cuti, jam kerja, atau aturan WFH."
+            ),
             "source": DB_SOURCE,
         }
 

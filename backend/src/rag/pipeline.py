@@ -121,6 +121,7 @@ class RAGPipeline:
                         {"role": "user", "content": prompt},
                     ],
                     temperature=0.3,
+                    max_completion_tokens=600,
                 )
                 llm_reply = response.choices[0].message.content
             except Exception:

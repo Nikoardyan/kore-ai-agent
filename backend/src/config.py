@@ -22,8 +22,8 @@ class Settings(BaseSettings):
     model_path: str = "./models/model.pkl"
 
     # Model LLM
-    llm_model: str = "llama-3.3-70b-versatile"
-    llm_router_model: str = ""
+    llm_model: str = "openai/gpt-oss-120b"
+    llm_router_model: str = "openai/gpt-oss-20b"
 
     # CORS — origin yang diizinkan (pisahkan koma di .env)
     # Contoh: ALLOWED_ORIGINS=http://localhost:5173,https://myapp.com
