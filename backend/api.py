@@ -1381,9 +1381,23 @@ def root():
 @app.get("/health")
 def health_check():
     pipeline = get_rag_pipeline()
+    db_ok = False
+    db_msg = ""
+    try:
+        from src.database.connection import get_db_connection
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+                db_ok = True
+                db_msg = "connected"
+    except Exception as e:
+        db_msg = f"{type(e).__name__}: {e}"
+
     return {
         "status": "ok",
         "llm_configured": _get_llm_client() is not None,
+        "database_connected": db_ok,
+        "database_status": db_msg,
         "knowledge_base_files": pipeline.loaded_files,
         "knowledge_base_chunks": pipeline.chunk_count,
     }
