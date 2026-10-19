@@ -16,6 +16,7 @@ from src.config import settings
 
 def _to_psycopg_conninfo(database_url: str) -> str:
     """psycopg gak kenal dialect suffix SQLAlchemy (postgresql+psycopg://), jadi dibuang."""
+    database_url = (database_url or "").strip()
     if database_url.startswith("postgresql+psycopg://"):
         database_url = database_url.replace("postgresql+psycopg://", "postgresql://", 1)
     if not database_url.startswith(("postgresql://", "postgres://")):
