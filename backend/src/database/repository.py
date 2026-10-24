@@ -18,6 +18,18 @@ class UserRepository:
             rows = connection.execute(query).fetchall()
         return [dict(row) for row in rows]
 
+    def get_employee_by_id(self, employee_id: str):
+        """Ambil satu pegawai secara exact-match untuk provisioning akun."""
+        query = """
+            SELECT employee_id, full_name
+            FROM employees
+            WHERE LOWER(employee_id) = LOWER(%s)
+            LIMIT 1
+        """
+        with get_db_connection() as connection:
+            row = connection.execute(query, (employee_id,)).fetchone()
+        return dict(row) if row else None
+
     # -- profil pegawai ---------------------------------------------------
 
     def find_employees(self, identifier: str, limit: int = 5):

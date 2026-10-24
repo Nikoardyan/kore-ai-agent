@@ -18,9 +18,6 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "sqlite:///./agent.db"
 
-    # Path model (legacy, belum dipakai aktif)
-    model_path: str = "./models/model.pkl"
-
     # Model LLM
     llm_model: str = "openai/gpt-oss-120b"
     llm_router_model: str = "openai/gpt-oss-20b"
@@ -28,6 +25,11 @@ class Settings(BaseSettings):
     # CORS — origin yang diizinkan (pisahkan koma di .env)
     # Contoh: ALLOWED_ORIGINS=http://localhost:5173,https://myapp.com
     allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+
+    # Auth. Wajib diisi pada production (termasuk Vercel).
+    auth_secret: str = ""
+    app_env: str = "development"
+    allow_self_registration: bool = False
 
     def get_llm_api_key(self) -> str:
         """Kembalikan API key LLM dari salah satu variabel yang tersedia."""

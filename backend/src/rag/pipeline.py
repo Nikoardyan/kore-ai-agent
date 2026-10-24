@@ -154,8 +154,8 @@ class RAGPipeline:
             label = f"{label}, halaman {page}"
 
         content = document.get("content", "")
-        if len(content) > 850:
-            content = content[:850].rsplit(" ", 1)[0] + "..."
+        if len(content) > 2000:
+            content = content[:2000].rsplit(" ", 1)[0] + "..."
 
         return f"[{label}]\n{content}"
 

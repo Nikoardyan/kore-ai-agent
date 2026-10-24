@@ -36,7 +36,7 @@ from functools import lru_cache
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.schemas import AuthLoginRequest, AuthRegisterRequest, AuthResponse, ChatRequest, ChatResponse
@@ -68,6 +68,9 @@ AUTH_USERS_FILE = (Path("/tmp") / "auth_users.json") if _IS_VERCEL else (BACKEND
 AUTH_SECRET_FILE = (Path("/tmp") / ".auth_secret") if _IS_VERCEL else (BACKEND_DIR / ".auth_secret")
 AUTH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7
 PASSWORD_HASH_ITERATIONS = 210_000
+LOGIN_RATE_LIMIT = (10, 60)       # 10 request / IP / menit
+REGISTER_RATE_LIMIT = (5, 60)     # 5 request / IP / menit
+CHAT_RATE_LIMIT = (30, 60)        # 30 request / IP / menit
 
 RAG_TERMS = {
     "cuti", "wfh", "gaji", "lembur", "training", "dokumen", "pdf", "arunika",
@@ -80,7 +83,7 @@ LEAVE_BALANCE_TERMS = ["sisa cuti", "saldo cuti", "cuti tersedia", "jatah cuti",
 # pertanyaan soal aturan/kebijakan -> jalur RAG (PDF), bukan database
 POLICY_TERMS = [
     "aturan", "kebijakan", "prosedur", "dokumen", "pdf", "syarat", "ketentuan",
-    "policy", "sla", "maksimal", "maksimum", "batas", "minimal", "minimum", "boleh",
+    "policy", "sla", "maksimal", "maksimum", "batas", "minimal", "minimum", "boleh", "deadline",
 ]
 # kata yang menandakan user minta data, bukan sekadar ngobrol
 DATA_INTENT_TERMS = [
@@ -155,6 +158,12 @@ CHAT_SYSTEM = (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Server starting up...")
+    _ensure_auth_configuration()
+    if _is_production() and (
+        not _allowed_origins
+        or any(origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1") for origin in _allowed_origins)
+    ):
+        raise RuntimeError("ALLOWED_ORIGINS production harus berisi origin HTTPS frontend yang eksplisit.")
     try:
         initialize_database()
     except Exception as exc:
@@ -179,14 +188,9 @@ if _env_origins:
         if _clean and _clean not in _allowed_origins:
             _allowed_origins.append(_clean)
 
-for _d in ["https://kore-ai-agent.vercel.app", "http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"]:
-    if _d not in _allowed_origins:
-        _allowed_origins.append(_d)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
-    allow_origin_regex=r"^https://.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -197,19 +201,49 @@ app.add_middleware(
 # Auth lokal sederhana
 # ---------------------------------------------------------------------------
 
+_auth_users_lock = threading.Lock()
+_rate_limit_lock = threading.Lock()
+_rate_limit_buckets: dict[tuple[str, str], list[float]] = {}
+
+
+def _is_production() -> bool:
+    return bool(os.getenv("VERCEL")) or settings.app_env.strip().lower() in {"prod", "production"}
+
+
+def _ensure_auth_configuration():
+    """Pastikan token tidak pernah ditandatangani dengan secret bawaan."""
+    if _is_production() and not (settings.auth_secret or os.getenv("AUTH_SECRET", "").strip()):
+        raise RuntimeError("AUTH_SECRET wajib diatur pada environment production.")
+    _get_auth_secret()
+
+
+def _enforce_rate_limit(request: Request, scope: str, limit: tuple[int, int]):
+    """Rate limit in-memory dasar. Production multi-instance sebaiknya memakai Redis/gateway."""
+    client_ip = request.client.host if request.client else "unknown"
+    max_requests, window_seconds = limit
+    now = time.monotonic()
+    key = (scope, client_ip)
+    with _rate_limit_lock:
+        if len(_rate_limit_buckets) > 10_000:
+            _rate_limit_buckets.clear()
+        timestamps = [stamp for stamp in _rate_limit_buckets.get(key, []) if now - stamp < window_seconds]
+        if len(timestamps) >= max_requests:
+            raise HTTPException(
+                status_code=429,
+                detail="Terlalu banyak percobaan. Silakan tunggu sebentar lalu coba lagi.",
+                headers={"Retry-After": str(window_seconds)},
+            )
+        timestamps.append(now)
+        _rate_limit_buckets[key] = timestamps
+
 def _employee_key(employee_id: str) -> str:
     return employee_id.strip().lower()
 
 
 def _load_auth_users() -> dict:
-    if _IS_VERCEL and not AUTH_USERS_FILE.exists():
-        initial_file = BACKEND_DIR / "auth_users.json"
-        if initial_file.exists():
-            try:
-                import shutil
-                shutil.copy(initial_file, AUTH_USERS_FILE)
-            except Exception:
-                pass
+    # File JSON hanya fallback local-development; tidak boleh menjadi identity store production.
+    if _is_production():
+        return {}
     if not AUTH_USERS_FILE.exists():
         return {}
     try:
@@ -220,20 +254,34 @@ def _load_auth_users() -> dict:
 
 
 def _save_auth_users(users: dict):
-    AUTH_USERS_FILE.write_text(json.dumps(users, indent=2), encoding="utf-8")
+    temporary_file = AUTH_USERS_FILE.with_suffix(".tmp")
+    temporary_file.write_text(json.dumps(users, indent=2), encoding="utf-8")
+    os.chmod(temporary_file, 0o600)
+    temporary_file.replace(AUTH_USERS_FILE)
 
 
 def _get_auth_secret() -> bytes:
-    env_secret = os.getenv("AUTH_SECRET", "").strip()
-    if env_secret:
+    env_secret = (settings.auth_secret or os.getenv("AUTH_SECRET", "")).strip()
+    if env_secret and len(env_secret) >= 32 and not env_secret.lower().startswith("ganti-dengan"):
         return env_secret.encode("utf-8")
     if AUTH_SECRET_FILE.exists():
         try:
             return AUTH_SECRET_FILE.read_bytes()
         except Exception:
             pass
-    # Secret fallback yang konsisten antar instance serverless
-    return b"kore-ai-default-auth-token-secret-key-2026"
+    if _is_production():
+        raise RuntimeError("AUTH_SECRET production harus berupa secret acak minimal 32 karakter.")
+
+    # Convenience untuk development saja. Secret dibuat acak dan disimpan dengan permission 0600.
+    generated_secret = secrets.token_urlsafe(48).encode("utf-8")
+    try:
+        fd = os.open(AUTH_SECRET_FILE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as secret_file:
+            secret_file.write(generated_secret)
+        logger.warning("AUTH_SECRET belum diatur; memakai secret development lokal di %s", AUTH_SECRET_FILE)
+        return generated_secret
+    except FileExistsError:
+        return AUTH_SECRET_FILE.read_bytes()
 
 
 def _get_user_by_id(employee_id: str) -> dict | None:
@@ -266,11 +314,11 @@ def _get_user_by_id(employee_id: str) -> dict | None:
     except Exception as exc:
         logger.warning("Gagal membaca user dari DB, fallback ke file: %s", exc)
 
-    # 2. Fallback ke file JSON lokal
+    # 2. Fallback ke file JSON hanya untuk local development
     return _load_auth_users().get(key)
 
 
-def _save_new_user(user: dict):
+def _save_new_user(user: dict) -> bool:
     norm_id = user["employee_id"].strip()
     key = norm_id.lower()
     pw = user.get("password") or {}
@@ -283,10 +331,8 @@ def _save_new_user(user: dict):
                 cur.execute("""
                     INSERT INTO app_users (employee_id, display_name, role, password_hash, password_salt, created_at)
                     VALUES (%s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (employee_id) DO UPDATE SET
-                        display_name = EXCLUDED.display_name,
-                        password_hash = EXCLUDED.password_hash,
-                        password_salt = EXCLUDED.password_salt;
+                    ON CONFLICT (employee_id) DO NOTHING
+                    RETURNING employee_id;
                 """, (
                     norm_id,
                     user.get("display_name") or "",
@@ -295,14 +341,23 @@ def _save_new_user(user: dict):
                     pw.get("salt") or "",
                     user.get("created_at") or int(time.time()),
                 ))
-            conn.commit()
+                if cur.fetchone() is None:
+                    return False
+            return True
     except Exception as exc:
-        logger.warning("Gagal menyimpan user ke DB, simpan ke file: %s", exc)
+        if _is_production():
+            logger.exception("Gagal menyimpan user ke DB")
+            raise HTTPException(status_code=503, detail="Layanan akun sedang tidak tersedia.") from exc
+        logger.warning("Gagal menyimpan user ke DB, pakai fallback development: %s", exc)
 
-    # 2. Selalu simpan juga ke cache file lokal
-    users = _load_auth_users()
-    users[key] = user
-    _save_auth_users(users)
+    # 2. Fallback local-development dengan write atomik dan lock proses.
+    with _auth_users_lock:
+        users = _load_auth_users()
+        if key in users:
+            return False
+        users[key] = user
+        _save_auth_users(users)
+    return True
 
 
 def _get_user_from_token(token: str) -> dict:
@@ -322,13 +377,8 @@ def _get_user_from_token(token: str) -> dict:
 
     user = _get_user_by_id(payload.get("sub", ""))
     if not user:
-        # Di serverless, jika user register di instance lain, token yang sudah terverifikasi
-        # tanda tangannya tetap valid dan user dikonstruksi dari payload
-        user = {
-            "employee_id": payload.get("sub", "employee"),
-            "display_name": payload.get("sub", "Employee"),
-            "role": payload.get("role", "employee"),
-        }
+        # Jangan mempercayai role/identity dari payload bila akun tak lagi ada atau DB down.
+        raise HTTPException(status_code=401, detail="Sesi tidak lagi valid.")
     return user
 
 
@@ -409,8 +459,13 @@ def _auth_response(user: dict) -> AuthResponse:
 def _validate_auth_input(employee_id: str, password: str):
     if not employee_id.strip():
         raise HTTPException(status_code=400, detail="ID karyawan wajib diisi.")
-    if len(password) < 6:
-        raise HTTPException(status_code=400, detail="Kata sandi minimal 6 karakter.")
+    if not password:
+        raise HTTPException(status_code=400, detail="Kata sandi wajib diisi.")
+
+
+def _validate_registration_password(password: str):
+    if len(password) < 12:
+        raise HTTPException(status_code=400, detail="Kata sandi minimal 12 karakter.")
 
 
 # ---------------------------------------------------------------------------
@@ -837,6 +892,8 @@ def get_database_reply(
         return {"reply": reply, "source": f"{DB_SOURCE}: {table}"}
 
     if topic == "employee_list":
+        if not is_hr:
+            return _access_denied_reply()
         filter_text = _extract_position_filter(text)
         try:
             total = repository.count_employees(filter_text)
@@ -1313,6 +1370,15 @@ def decide_route(message: str, recent_messages, employee_id: str | None = None):
     detected_identifier = find_identifier(message, repository)
     login_identifier = _normalize_employee_id(employee_id, repository)
     identifier = detected_identifier or (login_identifier if _can_use_login_employee(text) else "")
+
+    # Deteksi pertanyaan ambigu / hybrid (gabungan aturan kebijakan RAG + data personal DB)
+    is_hybrid = (
+        (_has_any(text, ["cuti melahirkan"]) or _has_any(text, POLICY_TERMS))
+        and (_has_any(text, LEAVE_BALANCE_TERMS) or (_mentions_self(text) and _has_any(text, ["sisa", "saldo", "kuota"])))
+    )
+    if is_hybrid:
+        return {"route": "ambigu", "topic": "hybrid", "identifier": login_identifier or identifier, "repository": repository}
+
     topic = detect_db_topic(text, identifier)
     if topic:
         return {"route": "database", "topic": topic, "identifier": identifier, "repository": repository}
@@ -1362,6 +1428,8 @@ def _route_label(route: str, topic: str | None) -> str:
         return f"database.{topic or 'general'}"
     if route == "rag":
         return "rag.search_knowledge_base"
+    if route == "ambigu":
+        return "hybrid.rag_and_database"
     return "conversation.respond"
 
 
@@ -1421,6 +1489,22 @@ def run_agent_executor(message: str, request: ChatRequest):
             route = "rag"  # update route label for final step
     elif route == "chat":
         result = get_chat_reply(message, request.recent_messages, request.user_name)
+    elif route == "ambigu":
+        # Hybrid: jalankan kedua jalur (aturan dari RAG PDF dan data personal dari database)
+        rag_res = get_rag_reply(message, request.recent_messages)
+        db_res = get_database_reply(
+            "leave" if _has_any(message.lower(), TOPIC_KEYWORDS["leave"]) else topic,
+            identifier or request.employee_id or "",
+            message,
+            decision["repository"],
+            requester_id=request.employee_id or "",
+            requester_role=request.requester_role or "employee",
+        )
+        combined_reply = f"{rag_res['reply']}\n\n---\n\n{db_res['reply']}"
+        result = {
+            "reply": combined_reply,
+            "source": f"{rag_res.get('source', 'PDF')} + {db_res.get('source', DB_SOURCE)}",
+        }
     else:
         result = get_rag_reply(message, request.recent_messages)
 
@@ -1449,7 +1533,14 @@ def root():
 
 @app.get("/health")
 def health_check():
-    pipeline = get_rag_pipeline()
+    try:
+        pipeline = get_rag_pipeline()
+        knowledge_base_files = [] if _is_production() else pipeline.loaded_files
+        knowledge_base_chunks = pipeline.chunk_count
+    except Exception:
+        logger.exception("Health check RAG gagal")
+        knowledge_base_files = []
+        knowledge_base_chunks = 0
     db_ok = False
     db_msg = ""
     try:
@@ -1459,41 +1550,63 @@ def health_check():
                 cur.execute("SELECT 1")
                 db_ok = True
                 db_msg = "connected"
-    except Exception as e:
-        db_msg = f"{type(e).__name__}: {e}"
+    except Exception:
+        logger.exception("Health check database gagal")
+        db_msg = "unavailable"
 
     return {
         "status": "ok",
         "llm_configured": _get_llm_client() is not None,
         "database_connected": db_ok,
         "database_status": db_msg,
-        "knowledge_base_files": pipeline.loaded_files,
-        "knowledge_base_chunks": pipeline.chunk_count,
+        # Nama file knowledge base dapat sensitif; cukup expose jumlahnya di production.
+        "knowledge_base_files": knowledge_base_files,
+        "knowledge_base_chunks": knowledge_base_chunks,
     }
 
 
 @app.post("/auth/register", response_model=AuthResponse)
-def register(request: AuthRegisterRequest):
+def register(request: AuthRegisterRequest, http_request: Request):
+    _enforce_rate_limit(http_request, "register", REGISTER_RATE_LIMIT)
+    if _is_production() or not settings.allow_self_registration:
+        raise HTTPException(
+            status_code=403,
+            detail="Pendaftaran mandiri dinonaktifkan. Hubungi HR/admin untuk dibuatkan akun.",
+        )
+
     employee_id = request.employee_id.strip()
     password = request.password
     _validate_auth_input(employee_id, password)
+    _validate_registration_password(password)
 
     if _get_user_by_id(employee_id) is not None:
         raise HTTPException(status_code=409, detail="ID karyawan sudah terdaftar.")
 
+    # Mode ini hanya untuk development/demo. Untuk production gunakan provisioning HR/SSO.
+    try:
+        employee = UserRepository().get_employee_by_id(employee_id)
+    except Exception as exc:
+        logger.exception("Validasi employee ID saat register gagal")
+        raise HTTPException(status_code=503, detail="Validasi ID karyawan sedang tidak tersedia.") from exc
+    if not employee:
+        raise HTTPException(status_code=404, detail="ID karyawan tidak ditemukan.")
+
     user = {
-        "employee_id": employee_id,
-        "display_name": (request.display_name or "").strip(),
+        "employee_id": employee["employee_id"],
+        # Jangan ambil nama dari request; data HR adalah sumber otoritatif.
+        "display_name": employee.get("full_name") or "",
         "role": "employee",
         "password": _hash_password(password),
         "created_at": int(time.time()),
     }
-    _save_new_user(user)
+    if not _save_new_user(user):
+        raise HTTPException(status_code=409, detail="ID karyawan sudah terdaftar.")
     return _auth_response(user)
 
 
 @app.post("/auth/login", response_model=AuthResponse)
-def login(request: AuthLoginRequest):
+def login(request: AuthLoginRequest, http_request: Request):
+    _enforce_rate_limit(http_request, "login", LOGIN_RATE_LIMIT)
     employee_id = request.employee_id.strip()
     password = request.password
     _validate_auth_input(employee_id, password)
@@ -1559,7 +1672,11 @@ _MAX_MESSAGE_LENGTH = 2000
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat_endpoint(request: ChatRequest, authorization: str | None = Header(default=None)):
+def chat_endpoint(
+    request: ChatRequest,
+    http_request: Request,
+    authorization: str | None = Header(default=None),
+):
     """Endpoint utama: terima pertanyaan, jalankan agent executor, kembalikan jawaban."""
     message = request.message.strip()
     if not message:
@@ -1571,6 +1688,7 @@ def chat_endpoint(request: ChatRequest, authorization: str | None = Header(defau
             detail=f"Pesan terlalu panjang. Maksimum {_MAX_MESSAGE_LENGTH} karakter.",
         )
 
+    _enforce_rate_limit(http_request, "chat", CHAT_RATE_LIMIT)
     auth_user = _get_user_from_token(_read_bearer_token(authorization))
     request.employee_id = auth_user["employee_id"]
     request.requester_role = _user_role(auth_user)
@@ -1579,7 +1697,9 @@ def chat_endpoint(request: ChatRequest, authorization: str | None = Header(defau
 
     try:
         result = run_agent_executor(message, request)
-    except RuntimeError as exc:
+    except HTTPException:
+        raise
+    except Exception as exc:
         logger.exception("Agent executor gagal")
         raise HTTPException(status_code=500, detail="Terjadi kesalahan internal. Coba lagi nanti.") from exc
 

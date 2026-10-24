@@ -42,3 +42,25 @@ class Embeddings:
             # FIX: Gunakan logger, bukan print() — muncul di log server, bukan stdout
             logger.exception("Error generating embedding")
             return []
+
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        """Menghasilkan embedding untuk beberapa teks sekaligus (batching) agar startup cepat."""
+        if not texts or (self.api_key and self.api_key.startswith("gsk_")):
+            return [[] for _ in texts]
+
+        results = [[] for _ in texts]
+        batch_size = 50
+        try:
+            for i in range(0, len(texts), batch_size):
+                batch_slice = texts[i : i + batch_size]
+                clean_slice = [t.strip() if t.strip() else " " for t in batch_slice]
+                response = self.client.embeddings.create(
+                    input=clean_slice,
+                    model="text-embedding-3-small",
+                )
+                for item in response.data:
+                    results[i + item.index] = item.embedding
+            return results
+        except Exception:
+            logger.exception("Error generating batch embeddings, falling back to individual")
+            return [self.embed_text(t) for t in texts]

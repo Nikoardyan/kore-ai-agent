@@ -26,6 +26,7 @@ services:
       - ./backend/.env
     environment:
       DATABASE_URL: postgresql://employee_agent:${POSTGRES_PASSWORD:-change-this-password}@postgres:5432/employee_agent
+      APP_ENV: development
     ports:
       - "8000:8000"
     volumes:
@@ -34,6 +35,20 @@ services:
       postgres:
         condition: service_healthy
     command: uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+
+  # Opsional: isi database lokal dengan data demo. Tidak dijalankan pada `docker compose up`
+  # agar data operasional tidak tertimpa.
+  seed:
+    profiles: ["seed"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://employee_agent:${POSTGRES_PASSWORD:-change-this-password}@postgres:5432/employee_agent
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: python seed_neon.py
 
   frontend:
     build:

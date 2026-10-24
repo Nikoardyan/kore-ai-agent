@@ -26,6 +26,7 @@ const STORAGE_KEY = 'kore-ai-chat-state-v5'
 const LEGACY_STORAGE_KEY = 'nexus-core-chat-state-v5'
 const STORAGE_VERSION = 5
 const AUTH_TOKEN_KEY = 'kore-ai-session-token-v1'
+const ALLOW_SELF_REGISTRATION = import.meta.env.VITE_ALLOW_SELF_REGISTRATION === 'true'
 const defaultChatHistory = [{ id: 1, title: 'Percakapan Baru' }]
 const defaultMessagesByChat = { 1: [] }
 
@@ -364,6 +365,7 @@ function App() {
   }
 
   const switchAuthMode = (modeName) => {
+    if (modeName === 'register' && !ALLOW_SELF_REGISTRATION) return
     setAuthMode(modeName)
     setAuthError('')
   }
@@ -412,8 +414,8 @@ function App() {
       return
     }
 
-    if (password.length < 6) {
-      setAuthError('Kata sandi minimal 6 karakter.')
+    if (password.length < 12) {
+      setAuthError('Kata sandi minimal 12 karakter.')
       return
     }
 
@@ -698,7 +700,7 @@ function App() {
   if (!currentUser) {
     return (
       <>
-        <AuthScreen
+      <AuthScreen
           mode={authMode}
           form={authForm}
           error={authError}
@@ -706,7 +708,8 @@ function App() {
           onChange={updateAuthForm}
           onModeChange={switchAuthMode}
           onLogin={handleLogin}
-          onRegister={handleRegister}
+        onRegister={handleRegister}
+        allowSelfRegistration={ALLOW_SELF_REGISTRATION}
         />
         {toast && (
           <div className="toast" key={toast.id} role="status">
@@ -992,7 +995,7 @@ function App() {
   )
 }
 
-function AuthScreen({ mode, form, error, submitting, onChange, onModeChange, onLogin, onRegister }) {
+function AuthScreen({ mode, form, error, submitting, onChange, onModeChange, onLogin, onRegister, allowSelfRegistration }) {
   const isRegister = mode === 'register'
 
   return (
@@ -1004,9 +1007,11 @@ function AuthScreen({ mode, form, error, submitting, onChange, onModeChange, onL
           <span>KORE AUTONOMOUS V2.5</span>
         </div>
         <nav className="auth-nav" aria-label="Navigasi autentikasi">
-          <button type="button" className={isRegister ? 'active' : ''} onClick={() => onModeChange('register')}>
-            Daftar Akun
-          </button>
+          {allowSelfRegistration && (
+            <button type="button" className={isRegister ? 'active' : ''} onClick={() => onModeChange('register')}>
+              Daftar Akun
+            </button>
+          )}
           <button type="button">Enterprise SSO</button>
           <button type="button">Dokumentasi</button>
         </nav>
@@ -1022,7 +1027,7 @@ function AuthScreen({ mode, form, error, submitting, onChange, onModeChange, onL
           <h1>{isRegister ? 'Mulai dengan KORE AI' : 'Selamat Datang Kembali'}</h1>
           <p>
             {isRegister
-              ? 'Daftarkan ID karyawan dan kata sandi bebas untuk membuka workspace AI.'
+              ? 'Pendaftaran mandiri hanya tersedia untuk lingkungan demo yang sudah disetujui admin.'
               : 'Masuk memakai ID karyawan yang sudah terdaftar sebelum mengakses AI.'}
           </p>
         </section>
@@ -1074,7 +1079,7 @@ function AuthScreen({ mode, form, error, submitting, onChange, onModeChange, onL
                 <input
                   value={form.password}
                   onChange={(event) => onChange('password', event.target.value)}
-                  placeholder="Masukkan kata sandi bebas Anda"
+                  placeholder={isRegister ? 'Minimal 12 karakter' : 'Masukkan kata sandi Anda'}
                   type="password"
                   autoComplete={isRegister ? 'new-password' : 'current-password'}
                   disabled={submitting}
@@ -1106,12 +1111,16 @@ function AuthScreen({ mode, form, error, submitting, onChange, onModeChange, onL
               </button>
             </form>
 
-            <div className="auth-switch">
-              {isRegister ? 'Sudah memiliki akun?' : 'Belum memiliki akun KORE AI?'}
-              <button type="button" onClick={() => onModeChange(isRegister ? 'login' : 'register')}>
-                {isRegister ? 'Masuk ke sini' : 'Daftar sekarang gratis'}
-              </button>
-            </div>
+            {allowSelfRegistration ? (
+              <div className="auth-switch">
+                {isRegister ? 'Sudah memiliki akun?' : 'Belum memiliki akun KORE AI?'}
+                <button type="button" onClick={() => onModeChange(isRegister ? 'login' : 'register')}>
+                  {isRegister ? 'Masuk ke sini' : 'Daftar akun demo'}
+                </button>
+              </div>
+            ) : (
+              <p className="auth-switch">Butuh akun? Hubungi HR atau administrator sistem.</p>
+            )}
           </section>
 
           <aside className="auth-telemetry" aria-label="Telemetry cluster KORE">

@@ -67,7 +67,12 @@ export async function sendMessage(message, userName, recentMessages = [], employ
             message,
             user_name: userName || null,
             employee_id: employeeId || null,
-            recent_messages: recentMessages
+            // API hanya menerima role OpenAI-compatible; data identity dari client diabaikan backend.
+            recent_messages: recentMessages.map(item => ({
+                role: item.role === 'ai' ? 'assistant' : 'user',
+                content: item.content,
+                source: item.source || null
+            }))
         })
     })
     return await parseResponse(response)

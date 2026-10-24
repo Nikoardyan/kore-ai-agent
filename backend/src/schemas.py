@@ -1,18 +1,26 @@
+from typing import Literal, Optional
+
 from pydantic import BaseModel, Field
-from typing import Optional
+
+
+MAX_MESSAGE_LENGTH = 2_000
+MAX_HISTORY_MESSAGES = 12
+MAX_HISTORY_MESSAGE_LENGTH = 2_000
+MAX_PASSWORD_LENGTH = 256
 
 # Skema untuk Chat
 class ChatMessage(BaseModel):
-    role: str
-    content: str
-    source: Optional[str] = None
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=MAX_HISTORY_MESSAGE_LENGTH)
+    source: Optional[str] = Field(default=None, max_length=256)
 
 class ChatRequest(BaseModel):
-    message: str
-    user_name: Optional[str] = None
-    employee_id: Optional[str] = None
-    requester_role: Optional[str] = None
-    recent_messages: list[ChatMessage] = Field(default_factory=list)
+    message: str = Field(min_length=1, max_length=MAX_MESSAGE_LENGTH)
+    user_name: Optional[str] = Field(default=None, max_length=128)
+    # Diabaikan oleh endpoint chat; identitas selalu diambil dari token.
+    employee_id: Optional[str] = Field(default=None, max_length=64)
+    requester_role: Optional[str] = Field(default=None, max_length=32)
+    recent_messages: list[ChatMessage] = Field(default_factory=list, max_length=MAX_HISTORY_MESSAGES)
 
 class AgentStep(BaseModel):
     thought: str
@@ -25,13 +33,14 @@ class ChatResponse(BaseModel):
     agent_steps: list[AgentStep] = Field(default_factory=list)
 
 class AuthRegisterRequest(BaseModel):
-    employee_id: str
-    password: str
-    display_name: Optional[str] = None
+    employee_id: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=12, max_length=MAX_PASSWORD_LENGTH)
+    # Nama dari client tidak dipakai sebagai sumber otoritatif.
+    display_name: Optional[str] = Field(default=None, max_length=128)
 
 class AuthLoginRequest(BaseModel):
-    employee_id: str
-    password: str
+    employee_id: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=1, max_length=MAX_PASSWORD_LENGTH)
 
 class AuthUser(BaseModel):
     employee_id: str
@@ -41,14 +50,3 @@ class AuthUser(BaseModel):
 class AuthResponse(BaseModel):
     token: str
     user: AuthUser
-
-# Skema permintaan kredit (contoh sebelumnya)
-class CreditRequest(BaseModel):
-    user_id: str
-    amount: float
-    income: float
-
-class CreditResponse(BaseModel):
-    approved: bool
-    risk_score: float
-    message: str

@@ -10,9 +10,11 @@ class VectorStore:
 
     def add_documents(self, documents):
         self.documents = []
-        for index, document in enumerate(documents):
-            content = document.get("content", "")
-            embedding = self.embedder.embed_text(content)
+        if not documents:
+            return
+        contents = [doc.get("content", "") for doc in documents]
+        embeddings = self.embedder.embed_batch(contents)
+        for index, (document, embedding) in enumerate(zip(documents, embeddings)):
             self.documents.append({
                 **document,
                 "id": index,
@@ -42,7 +44,17 @@ class VectorStore:
 
     def _keyword_search(self, query: str, top_k: int = 5):
         import re
-        tokens = [t.lower() for t in re.findall(r"\w+", query) if len(t) > 2]
+        stopwords = {
+            "yang", "di", "dari", "dan", "ini", "itu", "untuk", "pada", "ke", "saya",
+            "kamu", "aku", "adalah", "apa", "apakah", "bagaimana", "bisa", "ada", "atau",
+            "dengan", "oleh", "hal", "kami", "mereka", "kita", "juga", "sudah", "akan",
+            "berapa", "siapa", "gimana", "kapan", "kenapa", "mengapa", "tolong",
+        }
+        raw_tokens = [t.lower() for t in re.findall(r"\w+", query) if len(t) > 2]
+        tokens = [t for t in raw_tokens if t not in stopwords]
+        # Jika semua kata tereliminasi sebagai stopword, pakai raw_tokens
+        if not tokens:
+            tokens = raw_tokens
         if not tokens or not self.documents:
             return []
 

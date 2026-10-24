@@ -35,7 +35,7 @@ KORE AI menggabungkan autentikasi karyawan, pencarian data di database, tanya-ja
 ## Fitur
 
 **Autentikasi**
-- Registrasi dan login dengan ID karyawan dan kata sandi.
+- Login dengan akun yang diprovisikan oleh HR/admin.
 - Kata sandi di-hash di backend (PBKDF2 + salt), tidak pernah disimpan di browser.
 - Akses chat dilindungi session token bertanda tangan.
 
@@ -179,9 +179,18 @@ Salin `backend/.env.example` menjadi `backend/.env`, lalu isi nilainya.
 | `LLM_BASE_URL` | Tidak | Endpoint LLM kompatibel OpenAI. Otomatis ke Groq jika key diawali `gsk_` |
 | `LLM_MODEL` | Tidak | Model untuk menjawab. Default: `openai/gpt-oss-120b` |
 | `LLM_ROUTER_MODEL` | Tidak | Model khusus untuk routing intent |
-| `AUTH_SECRET` | Tidak | Secret penanda tangan token. Jika kosong, dibuat otomatis di `backend/.auth_secret` |
+| `AUTH_SECRET` | Ya (production) | Secret acak untuk tanda tangan token; development dapat membuat file lokal otomatis |
 
 > File `.env`, `backend/auth_users.json`, dan `backend/.auth_secret` berisi data sensitif dan sudah masuk `.gitignore`. Jangan pernah di-commit.
+
+Pada production, `AUTH_SECRET` **wajib** diisi dengan secret acak yang panjang. Pendaftaran mandiri dinonaktifkan secara default agar seseorang tidak dapat mengklaim ID karyawan orang lain. Provision akun dijalankan oleh admin setelah data pegawai tersedia:
+
+```bash
+cd backend
+python provision_user.py EMP-003 --role hr
+```
+
+`ALLOW_SELF_REGISTRATION=true` hanya boleh digunakan untuk demo lokal; mode tersebut tetap memvalidasi ID ke tabel `employees`.
 
 ## Menjalankan dengan Docker
 
@@ -238,6 +247,8 @@ Implementasi saat ini dibuat untuk prototype:
 - Kata sandi di-hash dengan PBKDF2 + salt dan tidak disimpan di browser.
 - Frontend hanya menyimpan session token.
 - `/chat` mewajibkan token, dan backend menentukan `employee_id` dari token.
+- Daftar seluruh pegawai hanya tersedia untuk HR/admin; data personal selalu dibatasi ke pemilik akun.
+- Login, registrasi, dan chat memakai rate limit dasar per IP.
 - File rahasia dan data login lokal dikecualikan dari git.
 
 Untuk penggunaan production, tambahkan:
