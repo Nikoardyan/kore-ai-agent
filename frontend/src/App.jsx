@@ -26,7 +26,7 @@ const STORAGE_KEY = 'kore-ai-chat-state-v5'
 const LEGACY_STORAGE_KEY = 'nexus-core-chat-state-v5'
 const STORAGE_VERSION = 5
 const AUTH_TOKEN_KEY = 'kore-ai-session-token-v1'
-const ALLOW_SELF_REGISTRATION = import.meta.env.VITE_ALLOW_SELF_REGISTRATION === 'true'
+const ALLOW_SELF_REGISTRATION = import.meta.env.VITE_ALLOW_SELF_REGISTRATION !== 'false'
 const defaultChatHistory = [{ id: 1, title: 'Percakapan Baru' }]
 const defaultMessagesByChat = { 1: [] }
 
@@ -414,8 +414,8 @@ function App() {
       return
     }
 
-    if (password.length < 12) {
-      setAuthError('Kata sandi minimal 12 karakter.')
+    if (password.length < 8) {
+      setAuthError('Kata sandi minimal 8 karakter.')
       return
     }
 
@@ -1007,6 +1007,9 @@ function AuthScreen({ mode, form, error, submitting, onChange, onModeChange, onL
           <span>KORE AUTONOMOUS V2.5</span>
         </div>
         <nav className="auth-nav" aria-label="Navigasi autentikasi">
+          <button type="button" className={!isRegister ? 'active' : ''} onClick={() => onModeChange('login')}>
+            Masuk
+          </button>
           {allowSelfRegistration && (
             <button type="button" className={isRegister ? 'active' : ''} onClick={() => onModeChange('register')}>
               Daftar Akun
@@ -1017,7 +1020,9 @@ function AuthScreen({ mode, form, error, submitting, onChange, onModeChange, onL
         </nav>
         <div className="auth-actions">
           <span>Enterprise SSO Ready</span>
-          <button type="button" onClick={() => onModeChange('login')}>Masuk</button>
+          <button type="button" onClick={() => onModeChange(isRegister ? 'login' : 'register')}>
+            {isRegister ? 'Ke Halaman Masuk' : 'Daftar Akun'}
+          </button>
         </div>
       </header>
 
@@ -1027,35 +1032,129 @@ function AuthScreen({ mode, form, error, submitting, onChange, onModeChange, onL
           <h1>{isRegister ? 'Mulai dengan KORE AI' : 'Selamat Datang Kembali'}</h1>
           <p>
             {isRegister
-              ? 'Pendaftaran mandiri hanya tersedia untuk lingkungan demo yang sudah disetujui admin.'
-              : 'Masuk memakai ID karyawan yang sudah terdaftar sebelum mengakses AI.'}
+              ? 'Daftarkan akun karyawan Anda untuk mulai menggunakan asisten AI internal.'
+              : 'Masuk memakai ID karyawan atau email Anda untuk mengakses workspace AI.'}
           </p>
         </section>
 
         <div className="auth-grid">
           <section className="auth-card" aria-label={isRegister ? 'Daftar akun KORE AI' : 'Masuk KORE AI'}>
+            <div className="auth-card-tabs" style={{ display: 'flex', gap: '8px', marginBottom: '18px', background: 'var(--bg-1, #1e293b)', padding: '4px', borderRadius: '8px' }}>
+              <button
+                type="button"
+                className={`auth-card-tab ${!isRegister ? 'active' : ''}`}
+                onClick={() => onModeChange('login')}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  color: !isRegister ? '#fff' : '#94a3b8',
+                  background: !isRegister ? '#3b82f6' : 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Masuk
+              </button>
+              {allowSelfRegistration && (
+                <button
+                  type="button"
+                  className={`auth-card-tab ${isRegister ? 'active' : ''}`}
+                  onClick={() => onModeChange('register')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    color: isRegister ? '#fff' : '#94a3b8',
+                    background: isRegister ? '#3b82f6' : 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  Daftar Akun
+                </button>
+              )}
+            </div>
+
+            {!isRegister && (
+              <div style={{
+                marginBottom: '16px',
+                padding: '10px 14px',
+                background: 'rgba(56, 189, 248, 0.08)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                borderRadius: '8px',
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '8px'
+              }}>
+                <div>
+                  <strong style={{ color: '#38bdf8' }}>Akun Demo: </strong>
+                  <span style={{ color: '#94a3b8' }}>EMP-001 / password12345</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange('employeeId', 'EMP-001')
+                    onChange('password', 'password12345')
+                  }}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    background: 'rgba(56, 189, 248, 0.2)',
+                    color: '#38bdf8',
+                    borderRadius: '4px',
+                    border: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Isi Otomatis
+                </button>
+              </div>
+            )}
+
             <div className="auth-provider-grid">
-              <button type="button">
+              <button
+                type="button"
+                onClick={() => {
+                  onChange('employeeId', 'EMP-001')
+                  onChange('password', 'password12345')
+                }}
+              >
                 <GoogleIcon />
                 <span>{isRegister ? 'Daftar via Google' : 'Masuk via Google'}</span>
               </button>
-              <button type="button">
+              <button
+                type="button"
+                onClick={() => {
+                  onChange('employeeId', 'EMP-001')
+                  onChange('password', 'password12345')
+                }}
+              >
                 <GithubIcon />
                 <span>{isRegister ? 'Daftar via GitHub' : 'Masuk via GitHub'}</span>
               </button>
             </div>
 
             <div className="auth-divider">
-              <span>{isRegister ? 'ATAU REGISTRASI LANGSUNG' : 'ATAU DENGAN EMAIL KERJA'}</span>
+              <span>{isRegister ? 'ATAU DAFTAR AKUN BARU' : 'ATAU DENGAN ID KARYAWAN'}</span>
             </div>
 
             <form onSubmit={isRegister ? onRegister : onLogin}>
               <label>
-                <span>NOMOR ID KARYAWAN</span>
+                <span>NOMOR ID KARYAWAN / EMAIL</span>
                 <input
                   value={form.employeeId}
                   onChange={(event) => onChange('employeeId', event.target.value)}
-                  placeholder="Contoh: KORE-9021 atau 123456"
+                  placeholder="Contoh: EMP-001 atau nama@perusahaan.com"
                   autoComplete="username"
                   disabled={submitting}
                 />
@@ -1067,7 +1166,7 @@ function AuthScreen({ mode, form, error, submitting, onChange, onModeChange, onL
                   <input
                     value={form.displayName}
                     onChange={(event) => onChange('displayName', event.target.value)}
-                    placeholder="Opsional"
+                    placeholder="Contoh: Niko Ardyan"
                     autoComplete="name"
                     disabled={submitting}
                   />
@@ -1079,7 +1178,7 @@ function AuthScreen({ mode, form, error, submitting, onChange, onModeChange, onL
                 <input
                   value={form.password}
                   onChange={(event) => onChange('password', event.target.value)}
-                  placeholder={isRegister ? 'Minimal 12 karakter' : 'Masukkan kata sandi Anda'}
+                  placeholder={isRegister ? 'Minimal 8 karakter' : 'Masukkan kata sandi Anda'}
                   type="password"
                   autoComplete={isRegister ? 'new-password' : 'current-password'}
                   disabled={submitting}
@@ -1115,7 +1214,7 @@ function AuthScreen({ mode, form, error, submitting, onChange, onModeChange, onL
               <div className="auth-switch">
                 {isRegister ? 'Sudah memiliki akun?' : 'Belum memiliki akun KORE AI?'}
                 <button type="button" onClick={() => onModeChange(isRegister ? 'login' : 'register')}>
-                  {isRegister ? 'Masuk ke sini' : 'Daftar akun demo'}
+                  {isRegister ? 'Masuk ke sini' : 'Daftar akun baru'}
                 </button>
               </div>
             ) : (
