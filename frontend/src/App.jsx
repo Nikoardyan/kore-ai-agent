@@ -33,10 +33,6 @@ const defaultMessagesByChat = { 1: [] }
 function createLogoMark(label = 'K') {
   return (
     <span className="logo-mark" aria-hidden="true">
-      <span />
-      <span />
-      <span />
-      <span />
       <b>{label}</b>
     </span>
   )
@@ -691,7 +687,7 @@ function App() {
       <div className="auth-page">
         <main className="auth-main auth-loading">
           {createLogoMark()}
-          <p>Memeriksa sesi KORE AI...</p>
+          <p>Memeriksa sesi KORE AI…</p>
         </main>
       </div>
     )
@@ -866,16 +862,16 @@ function App() {
             </button>
             <h2>{activeChat?.title || 'Percakapan Baru'}</h2>
             <span className="engine-badge">
-              <i /> KORE Reasoning Engine 4.0
+              <i /> KORE Engine v4.0
             </span>
             <span className={`status-pill ${connectionStatus}`}>
-              <i className="live-dot" />
-              {connectionStatus === 'online' ? 'Live' : connectionStatus === 'offline' ? 'Terputus' : 'Siaga'}
+              <span className="live-dot" />
+              {connectionStatus === 'online' ? 'Live' : connectionStatus === 'offline' ? 'Offline' : 'Standby'}
             </span>
           </div>
           <div className="topbar-actions">
             <button className="utility-button" type="button" onClick={handleShareSession}>
-              Bagikan Sesi
+              ↗ Bagikan
             </button>
             <button className="icon-button" type="button" aria-label="Unduh sesi" onClick={handleDownloadSession}>
               ⬇
@@ -918,14 +914,13 @@ function App() {
                   <div className="message-body">
                     <div className="message-meta">
                       <strong>KORE AI</strong>
-                      <span className="mode-badge">Autonomous Executing</span>
-                      <span>Baru Saja</span>
+                      <span className="mode-badge">Memproses…</span>
                     </div>
                     <div className="reasoning-card compact">
                       <span className="typing-dots" aria-hidden="true">
                         <i /><i /><i />
                       </span>
-                      Memproses permintaan dan memilih sumber data...
+                      Menganalisis permintaan dan memilih sumber data…
                     </div>
                   </div>
                 </article>
@@ -1292,7 +1287,6 @@ function Message({ message, chatId, index, onCopy, onRegenerate, onToggleLike, o
     return (
       <article className="message-row user">
         <div className="user-bubble">{message.content}</div>
-        <div className="user-avatar" aria-hidden="true">U</div>
         <time>{message.time} · Terkirim</time>
       </article>
     )
