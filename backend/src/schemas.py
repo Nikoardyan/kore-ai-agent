@@ -34,8 +34,7 @@ class ChatResponse(BaseModel):
 
 class AuthRegisterRequest(BaseModel):
     employee_id: str = Field(min_length=1, max_length=64)
-    password: str = Field(min_length=12, max_length=MAX_PASSWORD_LENGTH)
-    # Nama dari client tidak dipakai sebagai sumber otoritatif.
+    password: str = Field(min_length=8, max_length=MAX_PASSWORD_LENGTH)
     display_name: Optional[str] = Field(default=None, max_length=128)
 
 class AuthLoginRequest(BaseModel):

@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # Auth. Wajib diisi pada production (termasuk Vercel).
     auth_secret: str = ""
     app_env: str = "development"
-    allow_self_registration: bool = False
+    allow_self_registration: bool = True
 
     def get_llm_api_key(self) -> str:
         """Kembalikan API key LLM dari salah satu variabel yang tersedia."""

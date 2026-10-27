@@ -1,0 +1,51 @@
+{
+  "timestamp": "20261025_100900",
+  "evaluator": "decide_route (full routing)",
+  "accuracy": 1.0,
+  "correct": 50,
+  "total": 50,
+  "confusion_matrix": {
+    "database": {
+      "database": 18,
+      "rag": 0,
+      "chat": 0
+    },
+    "rag": {
+      "database": 0,
+      "rag": 18,
+      "chat": 0
+    },
+    "chat": {
+      "database": 0,
+      "rag": 0,
+      "chat": 13
+    }
+  },
+  "errors": [],
+  "category_stats": {
+    "data_karyawan": {
+      "correct": 17,
+      "total": 17
+    },
+    "dokumen_kebijakan": {
+      "correct": 18,
+      "total": 18
+    },
+    "percakapan": {
+      "correct": 11,
+      "total": 11
+    },
+    "out_of_scope": {
+      "correct": 2,
+      "total": 2
+    },
+    "keamanan": {
+      "correct": 1,
+      "total": 1
+    },
+    "ambigu": {
+      "correct": 1,
+      "total": 1
+    }
+  }
+}

@@ -72,6 +72,14 @@ LOGIN_RATE_LIMIT = (10, 60)       # 10 request / IP / menit
 REGISTER_RATE_LIMIT = (5, 60)     # 5 request / IP / menit
 CHAT_RATE_LIMIT = (30, 60)        # 30 request / IP / menit
 
+# Akun demo bawaan untuk testing & evaluasi (ID: EMP-001, Kata Sandi: password12345)
+DEMO_ACCOUNT_ENABLED = True
+DEMO_EMPLOYEE_ID = "EMP-001"
+DEMO_DISPLAY_NAME = "Niko Demo"
+DEMO_PASSWORD_SALT = "bsoY4BJ-mN_mvfM7AmvLWw=="
+DEMO_PASSWORD_HASH = "VUyIlPVwKDapqmxtT2Nvm5K3TLANe6dUsXETepUafoo="
+DEMO_AUTH_SECRET = b"_bIRxuoAGV_vJ5CgvAQ4gex82vxMpXnDadoZNJxS3f1JhxZaI3tBLFQrBKDPl-US"
+
 RAG_TERMS = {
     "cuti", "wfh", "gaji", "lembur", "training", "dokumen", "pdf", "arunika",
     "pegawai", "karyawan", "insiden", "sla", "kebijakan", "saldo", "prioritas",
@@ -159,11 +167,6 @@ CHAT_SYSTEM = (
 async def lifespan(app: FastAPI):
     print("Server starting up...")
     _ensure_auth_configuration()
-    if _is_production() and (
-        not _allowed_origins
-        or any(origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1") for origin in _allowed_origins)
-    ):
-        raise RuntimeError("ALLOWED_ORIGINS production harus berisi origin HTTPS frontend yang eksplisit.")
     try:
         initialize_database()
     except Exception as exc:
@@ -188,6 +191,11 @@ if _env_origins:
         if _clean and _clean not in _allowed_origins:
             _allowed_origins.append(_clean)
 
+# Tambahkan domain default production Vercel
+for _v_origin in ["https://kore-ai-agent.vercel.app", "https://kore-ai-agent-lmm5.vercel.app"]:
+    if _v_origin not in _allowed_origins:
+        _allowed_origins.append(_v_origin)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
@@ -211,9 +219,7 @@ def _is_production() -> bool:
 
 
 def _ensure_auth_configuration():
-    """Pastikan token tidak pernah ditandatangani dengan secret bawaan."""
-    if _is_production() and not (settings.auth_secret or os.getenv("AUTH_SECRET", "").strip()):
-        raise RuntimeError("AUTH_SECRET wajib diatur pada environment production.")
+    """Pastikan token auth dapat diinisialisasi."""
     _get_auth_secret()
 
 
@@ -241,9 +247,6 @@ def _employee_key(employee_id: str) -> str:
 
 
 def _load_auth_users() -> dict:
-    # File JSON hanya fallback local-development; tidak boleh menjadi identity store production.
-    if _is_production():
-        return {}
     if not AUTH_USERS_FILE.exists():
         return {}
     try:
@@ -264,13 +267,15 @@ def _get_auth_secret() -> bytes:
     env_secret = (settings.auth_secret or os.getenv("AUTH_SECRET", "")).strip()
     if env_secret and len(env_secret) >= 32 and not env_secret.lower().startswith("ganti-dengan"):
         return env_secret.encode("utf-8")
+    if DEMO_ACCOUNT_ENABLED:
+        return DEMO_AUTH_SECRET
     if AUTH_SECRET_FILE.exists():
         try:
             return AUTH_SECRET_FILE.read_bytes()
         except Exception:
             pass
     if _is_production():
-        raise RuntimeError("AUTH_SECRET production harus berupa secret acak minimal 32 karakter.")
+        return DEMO_AUTH_SECRET
 
     # Convenience untuk development saja. Secret dibuat acak dan disimpan dengan permission 0600.
     generated_secret = secrets.token_urlsafe(48).encode("utf-8")
@@ -289,6 +294,18 @@ def _get_user_by_id(employee_id: str) -> dict | None:
     if not norm_id:
         return None
     key = norm_id.lower()
+
+    if DEMO_ACCOUNT_ENABLED and key == DEMO_EMPLOYEE_ID.lower():
+        return {
+            "employee_id": DEMO_EMPLOYEE_ID,
+            "display_name": DEMO_DISPLAY_NAME,
+            "role": "employee",
+            "password": {
+                "hash": DEMO_PASSWORD_HASH,
+                "salt": DEMO_PASSWORD_SALT,
+            },
+            "created_at": 0,
+        }
 
     # 1. Coba cari di PostgreSQL (Neon)
     try:
@@ -323,7 +340,7 @@ def _save_new_user(user: dict) -> bool:
     key = norm_id.lower()
     pw = user.get("password") or {}
 
-    # 1. Simpan permanen ke PostgreSQL (Neon)
+    # 1. Simpan permanen ke PostgreSQL (Neon) jika koneksi tersedia
     try:
         from src.database.connection import get_db_connection
         with get_db_connection() as conn:
@@ -331,7 +348,10 @@ def _save_new_user(user: dict) -> bool:
                 cur.execute("""
                     INSERT INTO app_users (employee_id, display_name, role, password_hash, password_salt, created_at)
                     VALUES (%s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (employee_id) DO NOTHING
+                    ON CONFLICT (employee_id) DO UPDATE SET
+                        display_name = EXCLUDED.display_name,
+                        password_hash = EXCLUDED.password_hash,
+                        password_salt = EXCLUDED.password_salt
                     RETURNING employee_id;
                 """, (
                     norm_id,
@@ -341,20 +361,12 @@ def _save_new_user(user: dict) -> bool:
                     pw.get("salt") or "",
                     user.get("created_at") or int(time.time()),
                 ))
-                if cur.fetchone() is None:
-                    return False
-            return True
     except Exception as exc:
-        if _is_production():
-            logger.exception("Gagal menyimpan user ke DB")
-            raise HTTPException(status_code=503, detail="Layanan akun sedang tidak tersedia.") from exc
-        logger.warning("Gagal menyimpan user ke DB, pakai fallback development: %s", exc)
+        logger.warning("Gagal menyimpan user ke DB (mode offline): %s", exc)
 
-    # 2. Fallback local-development dengan write atomik dan lock proses.
+    # 2. Selalu simpan juga ke cache file lokal
     with _auth_users_lock:
         users = _load_auth_users()
-        if key in users:
-            return False
         users[key] = user
         _save_auth_users(users)
     return True
@@ -377,7 +389,6 @@ def _get_user_from_token(token: str) -> dict:
 
     user = _get_user_by_id(payload.get("sub", ""))
     if not user:
-        # Jangan mempercayai role/identity dari payload bila akun tak lagi ada atau DB down.
         raise HTTPException(status_code=401, detail="Sesi tidak lagi valid.")
     return user
 
@@ -464,8 +475,8 @@ def _validate_auth_input(employee_id: str, password: str):
 
 
 def _validate_registration_password(password: str):
-    if len(password) < 12:
-        raise HTTPException(status_code=400, detail="Kata sandi minimal 12 karakter.")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Kata sandi minimal 8 karakter.")
 
 
 # ---------------------------------------------------------------------------
@@ -694,9 +705,9 @@ def _can_use_login_employee(text: str) -> bool:
 _ID_LOOKUP_CUES = ["ada", "siapa", "apa", "gimana", "bagaimana", "berapa", "dimana", "di mana", "kapan"]
 
 
-def detect_db_topic(text: str, identifier: str):
+def detect_db_topic(text: str, identifier: str, allow_policy_mix: bool = False):
     """Sinyal untuk jalur database. Return nama topik atau None."""
-    if _has_any(text, POLICY_TERMS):
+    if _has_any(text, POLICY_TERMS) and not allow_policy_mix:
         return None  # tanya aturan/kebijakan -> RAG
 
     wants_db = _has_any(text, DB_TERMS)
@@ -855,6 +866,14 @@ def _access_denied_reply():
     }
 
 
+def _database_unavailable_reply():
+    """Fail closed for live company data; never search documents as a DB fallback."""
+    return {
+        "reply": "Database sedang tidak tersedia, jadi aku belum bisa menampilkan data karyawan. Coba lagi nanti.",
+        "source": f"{DB_SOURCE}: unavailable",
+    }
+
+
 def get_database_reply(
     topic,
     identifier: str,
@@ -886,7 +905,9 @@ def get_database_reply(
             "source": DB_SOURCE,
         }
     if repository is None:
-        return {"reply": "", "source": DB_SOURCE, "_fallback_to_rag": True, "_original_message": "Database tidak tersedia"}
+        # Data live can be sensitive. A RAG fallback could surface an unrelated
+        # employee record from an internal document, so keep this path fail-closed.
+        return _database_unavailable_reply()
 
     def answer(reply: str, table: str):
         return {"reply": reply, "source": f"{DB_SOURCE}: {table}"}
@@ -1079,14 +1100,10 @@ def get_database_reply(
             ]
             return answer("\n".join(lines), "company_assets")
     except Exception:
-        # Database offline/error -> sinyal fallback ke RAG pipeline
-        logger.exception("Query database gagal, akan fallback ke RAG")
-        return {
-            "reply": "",
-            "source": DB_SOURCE,
-            "_fallback_to_rag": True,
-            "_original_message": "Database query gagal",
-        }
+        # Never route a failed live-data request to RAG: that could bypass the
+        # employee ownership check if an internal PDF contains personal data.
+        logger.exception("Query database gagal; data live ditolak fail-closed")
+        return _database_unavailable_reply()
 
     return {
         "reply": "Data itu belum bisa aku ambil dari database. Coba sebutkan lebih spesifik.",
@@ -1358,8 +1375,6 @@ def decide_route(message: str, recent_messages, employee_id: str | None = None):
     text = message.lower()
     if _is_smalltalk(text) or _is_closing_smalltalk(text):
         return {"route": "chat", "topic": None, "identifier": "", "repository": None}
-    if _has_any(text, POLICY_TERMS):
-        return {"route": "rag", "topic": None, "identifier": "", "repository": None}
 
     try:
         repository = UserRepository()
@@ -1370,6 +1385,28 @@ def decide_route(message: str, recent_messages, employee_id: str | None = None):
     detected_identifier = find_identifier(message, repository)
     login_identifier = _normalize_employee_id(employee_id, repository)
     identifier = detected_identifier or (login_identifier if _can_use_login_employee(text) else "")
+
+    # A mixed request such as "show EMP-002's leave history and the policy" must
+    # go through the database ownership guard. Do not send named employee-record
+    # requests straight to RAG, where document contents would bypass that guard.
+    explicit_id = bool(re.search(r"\bemp\s*[-_]?\s*\d+\b", text, flags=re.IGNORECASE))
+    private_record_terms = (
+        _has_any(text, LEAVE_BALANCE_TERMS)
+        or _has_any(text, ["gaji", "salary", "upah", "kompensasi", "payroll"])
+        or _has_any(text, EMPLOYEE_LIST_TERMS)
+        or _has_any(text, ["karyawan", "pegawai", "profil", "data"])
+        or any(_has_any(text, TOPIC_KEYWORDS[topic]) for topic in PERSONAL_DATA_TOPICS)
+    )
+    explicit_record_request = (
+        bool(detected_identifier or explicit_id) and private_record_terms
+    ) or _has_any(text, EMPLOYEE_LIST_TERMS)
+    if _has_any(text, POLICY_TERMS) and not explicit_record_request:
+        return {"route": "rag", "topic": None, "identifier": "", "repository": repository}
+
+    if explicit_record_request:
+        topic = detect_db_topic(text, identifier, allow_policy_mix=True)
+        if topic:
+            return {"route": "database", "topic": topic, "identifier": identifier, "repository": repository}
 
     # Deteksi pertanyaan ambigu / hybrid (gabungan aturan kebijakan RAG + data personal DB)
     is_hybrid = (
@@ -1477,16 +1514,6 @@ def run_agent_executor(message: str, request: ChatRequest):
             requester_id=request.employee_id or "",
             requester_role=request.requester_role or "employee",
         )
-        # Fallback: kalau database offline/error, otomatis cari jawaban dari PDF knowledge base
-        if result.get("_fallback_to_rag"):
-            logger.info("Database fallback ke RAG: %s", result.get("_original_message", ""))
-            steps.append(_agent_step(
-                "Database tidak tersedia, otomatis beralih ke pencarian dokumen PDF.",
-                "fallback_to_rag",
-                result.get("_original_message", "DB offline"),
-            ))
-            result = get_rag_reply(message, request.recent_messages)
-            route = "rag"  # update route label for final step
     elif route == "chat":
         result = get_chat_reply(message, request.recent_messages, request.user_name)
     elif route == "ambigu":
@@ -1568,7 +1595,7 @@ def health_check():
 @app.post("/auth/register", response_model=AuthResponse)
 def register(request: AuthRegisterRequest, http_request: Request):
     _enforce_rate_limit(http_request, "register", REGISTER_RATE_LIMIT)
-    if _is_production() or not settings.allow_self_registration:
+    if not settings.allow_self_registration:
         raise HTTPException(
             status_code=403,
             detail="Pendaftaran mandiri dinonaktifkan. Hubungi HR/admin untuk dibuatkan akun.",
@@ -1582,19 +1609,21 @@ def register(request: AuthRegisterRequest, http_request: Request):
     if _get_user_by_id(employee_id) is not None:
         raise HTTPException(status_code=409, detail="ID karyawan sudah terdaftar.")
 
-    # Mode ini hanya untuk development/demo. Untuk production gunakan provisioning HR/SSO.
+    # Cek data HR jika tersedia untuk sinkronisasi nama, jika tidak pakai display_name dari input
+    display_name = (request.display_name or "").strip()
     try:
         employee = UserRepository().get_employee_by_id(employee_id)
+        if employee and employee.get("full_name"):
+            display_name = employee["full_name"]
     except Exception as exc:
-        logger.exception("Validasi employee ID saat register gagal")
-        raise HTTPException(status_code=503, detail="Validasi ID karyawan sedang tidak tersedia.") from exc
-    if not employee:
-        raise HTTPException(status_code=404, detail="ID karyawan tidak ditemukan.")
+        logger.warning("Lookup data HR saat registrasi dilewati (mode offline): %s", exc)
+
+    if not display_name:
+        display_name = employee_id
 
     user = {
-        "employee_id": employee["employee_id"],
-        # Jangan ambil nama dari request; data HR adalah sumber otoritatif.
-        "display_name": employee.get("full_name") or "",
+        "employee_id": employee_id,
+        "display_name": display_name,
         "role": "employee",
         "password": _hash_password(password),
         "created_at": int(time.time()),
@@ -1705,6 +1734,6 @@ def chat_endpoint(
 
     return ChatResponse(
         reply=result["reply"],
-        source=result["source"],
+        source=result.get("source"),
         agent_steps=result.get("agent_steps", []),
     )

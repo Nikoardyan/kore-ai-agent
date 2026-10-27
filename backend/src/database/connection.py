@@ -32,7 +32,7 @@ def _to_psycopg_conninfo(database_url: str) -> str:
 def get_db_connection():
     """Dipakai sebagai: `with get_db_connection() as connection: connection.execute(...)`."""
     conninfo = _to_psycopg_conninfo(settings.database_url)
-    connection = psycopg.connect(conninfo, row_factory=dict_row)
+    connection = psycopg.connect(conninfo, row_factory=dict_row, connect_timeout=3)
     try:
         yield connection
         connection.commit()
